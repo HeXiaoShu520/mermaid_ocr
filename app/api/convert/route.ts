@@ -40,7 +40,7 @@ export async function POST(req: Request) {
     });
 
     let mermaid = res.content[0].type === "text" ? res.content[0].text : "";
-    mermaid = mermaid.replace(/^```(?:mermaid)?\n?/i, "").replace(/\n?```$/,"").trim();
+    mermaid = mermaid.replace(/^```[\w]*\s*/i, "").replace(/\s*```$/,"").trim();
     return NextResponse.json({ mermaid });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

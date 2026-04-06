@@ -16,7 +16,7 @@ OPENAI_API_KEY=sk-your-key-here
 npm run dev
 ```
 
-3. 打开浏览器访问 http://localhost:3000
+3. 打开浏览器访问 http://localhost:3333
 
 ## 使用方法
 
