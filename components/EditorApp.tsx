@@ -9,6 +9,9 @@ import { ShapeIcon, SHAPE_CATEGORIES, type ShapeCategory } from "@/components/ed
 import { useFlowStore, type NodeShape, type Direction, type Theme, type CurveStyle } from "@/lib/flowStore";
 import { serialize } from "@/lib/serializer";
 import { parseMermaidFlowchart } from "@/lib/parser";
+import { parseMermaidClassDiagram } from "@/lib/classParser";
+import { parseMermaidStateDiagram } from "@/lib/stateParser";
+import { serializeClassDiagram, serializeStateDiagram } from "@/lib/diagramSerializers";
 import { applyDagreLayout } from "@/lib/layout";
 import { useStore } from "@/store/useStore";
 import { useShallow } from "zustand/react/shallow";
@@ -23,10 +26,18 @@ const NEU_BG = "var(--neu-bg)";
 const PANEL_BORDER = "1px solid rgba(163,177,198,0.25)";
 const PANEL_RADIUS = 10;
 
+type DiagramType = 'flowchart' | 'classDiagram' | 'stateDiagram' | null
+
+function getDiagramType(code: string): DiagramType {
+  const stripped = code.trim().replace(/^%%\{[\s\S]*?\}%%\s*/i, '')
+  if (/^(flowchart|graph)\s/i.test(stripped)) return 'flowchart'
+  if (/^classDiagram/i.test(stripped)) return 'classDiagram'
+  if (/^stateDiagram(-v2)?/i.test(stripped)) return 'stateDiagram'
+  return null
+}
+
 function isFlowchart(code: string): boolean {
-  // Strip %%{ init: ... }%% frontmatter before checking
-  const stripped = code.trim().replace(/^%%\{[\s\S]*?\}%%\s*/i, '');
-  return /^(flowchart|graph)\s/i.test(stripped);
+  return getDiagramType(code) === 'flowchart'
 }
 
 /* ─── Helpers ─── */
@@ -440,12 +451,27 @@ function CodeEditor({ supported, widthPx }: { supported: boolean; widthPx: numbe
 
   const handleCodeToVisual = () => {
     if (!code.trim()) return;
-    const result = parseMermaidFlowchart(code);
-    if (result.error) { alert("解析失败: " + result.error); return; }
-    importDiagram(result.nodes, result.edges, {
-      direction: result.direction, theme: result.theme,
-      look: result.look, curveStyle: result.curveStyle,
-    });
+    const type = getDiagramType(code);
+    if (type === 'flowchart') {
+      const result = parseMermaidFlowchart(code);
+      if (result.error) { alert("解析失败: " + result.error); return; }
+      importDiagram(result.nodes, result.edges, {
+        direction: result.direction, theme: result.theme,
+        look: result.look, curveStyle: result.curveStyle,
+      });
+    } else if (type === 'classDiagram') {
+      const result = parseMermaidClassDiagram(code);
+      if (result.error) { alert("解析失败: " + result.error); return; }
+      importDiagram(result.nodes, result.edges, {
+        direction: 'TD', theme: 'default', look: 'classic', curveStyle: 'basis',
+      });
+    } else if (type === 'stateDiagram') {
+      const result = parseMermaidStateDiagram(code);
+      if (result.error) { alert("解析失败: " + result.error); return; }
+      importDiagram(result.nodes, result.edges, {
+        direction: 'TD', theme: 'default', look: 'classic', curveStyle: 'basis',
+      });
+    }
   };
 
   const handleCopy = async () => {
@@ -513,7 +539,14 @@ function VisualEditorColumn({ supported }: { supported: boolean }) {
   const handleVisualToCode = () => {
     const { nodes, edges, direction, theme, look, curveStyle } = useFlowStore.getState();
     if (nodes.length === 0) return;
-    setMermaid(serialize(nodes, edges, { direction, theme, look, curveStyle }));
+    const type = getDiagramType(code);
+    if (type === 'classDiagram') {
+      setMermaid(serializeClassDiagram(nodes, edges));
+    } else if (type === 'stateDiagram') {
+      setMermaid(serializeStateDiagram(nodes, edges));
+    } else {
+      setMermaid(serialize(nodes, edges, { direction, theme, look, curveStyle }));
+    }
   };
 
   return (
@@ -571,7 +604,7 @@ function RightSidebar({ supported }: { supported: boolean }) {
 function EditorContent() {
   const { nodes, edges, direction, theme, look, curveStyle } = useFlowStore();
   const { mermaid: code, setMermaid } = useStore();
-  const supported = isFlowchart(code) || (!code && nodes.length > 0);
+  const supported = isFlowchart(code) || getDiagramType(code) === 'classDiagram' || getDiagramType(code) === 'stateDiagram' || (!code && nodes.length > 0);
 
   // Resizable column widths (ratio 3:3:5)
   const containerRef = useRef<HTMLDivElement>(null);
@@ -590,8 +623,15 @@ function EditorContent() {
   // When diagram settings change and we have nodes, auto-sync to code
   useEffect(() => {
     if (nodes.length === 0) return;
-    const syntax = serialize(nodes, edges, { direction, theme, look, curveStyle });
-    setMermaid(syntax);
+    const type = getDiagramType(code);
+    if (type === 'classDiagram') {
+      setMermaid(serializeClassDiagram(nodes, edges));
+    } else if (type === 'stateDiagram') {
+      setMermaid(serializeStateDiagram(nodes, edges));
+    } else {
+      const syntax = serialize(nodes, edges, { direction, theme, look, curveStyle });
+      setMermaid(syntax);
+    }
   }, [direction, theme, look, curveStyle]);
 
   return (
