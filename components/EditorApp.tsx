@@ -11,7 +11,11 @@ import { serialize } from "@/lib/serializer";
 import { parseMermaidFlowchart } from "@/lib/parser";
 import { parseMermaidClassDiagram } from "@/lib/classParser";
 import { parseMermaidStateDiagram } from "@/lib/stateParser";
-import { serializeClassDiagram, serializeStateDiagram } from "@/lib/diagramSerializers";
+import { parseMermaidSequenceDiagram } from "@/lib/sequenceParser";
+import { parseMermaidPieChart, serializePieChart } from "@/lib/pieParser";
+import { parseMermaidXyChart, serializeXyChart } from "@/lib/xyChartParser";
+import type { XyChartData } from "@/lib/xyChartParser";
+import { serializeClassDiagram, serializeStateDiagram, serializeSequenceDiagram } from "@/lib/diagramSerializers";
 import { applyDagreLayout } from "@/lib/layout";
 import { useStore } from "@/store/useStore";
 import { useShallow } from "zustand/react/shallow";
@@ -19,6 +23,9 @@ import { templateCategories } from "@/lib/templates";
 import { fileToBase64 } from "@/lib/utils";
 import mermaid from "mermaid";
 import "@xyflow/react/dist/style.css";
+import { PieEditor } from "@/components/editor/PieEditor";
+import { XyChartEditor } from "@/components/editor/XyChartEditor";
+import { SequenceEditor, type SeqParticipant, type SeqMessage } from "@/components/editor/SequenceEditor";
 
 mermaid.initialize({ startOnLoad: false });
 
@@ -26,13 +33,52 @@ const NEU_BG = "var(--neu-bg)";
 const PANEL_BORDER = "1px solid rgba(163,177,198,0.25)";
 const PANEL_RADIUS = 10;
 
-type DiagramType = 'flowchart' | 'classDiagram' | 'stateDiagram' | null
+type DiagramType = 'flowchart' | 'classDiagram' | 'stateDiagram' | 'sequenceDiagram' | 'pie' | 'xychart' | null
+
+function parseSeqData(code: string): { participants: SeqParticipant[]; messages: SeqMessage[] } {
+  const lines = code.split('\n').map(l => l.trim()).filter(Boolean)
+  const participants: SeqParticipant[] = []
+  const messages: SeqMessage[] = []
+  const pMap = new Map<string, string>()
+  const ensure = (id: string) => { if (!pMap.has(id)) { pMap.set(id, id); participants.push({ id, label: id }) } }
+  for (const line of lines) {
+    if (/^sequenceDiagram/.test(line) || /^%%/.test(line)) continue
+    const pm = line.match(/^participant\s+(\S+)(?:\s+as\s+(.+))?$/)
+    if (pm) { const [, id, label] = pm; pMap.set(id, label || id); if (!participants.find(p => p.id === id)) participants.push({ id, label: label || id }); continue }
+    const patterns: [RegExp, 'solid'|'dashed', 'filled'|'open'|'none'][] = [
+      [/^(.+?)-->>\s*(.+?)\s*:\s*(.*)$/, 'dashed', 'filled'],
+      [/^(.+?)->>\s*(.+?)\s*:\s*(.*)$/, 'solid', 'filled'],
+      [/^(.+?)--\)\s*(.+?)\s*:\s*(.*)$/, 'dashed', 'none'],
+      [/^(.+?)-\)\s*(.+?)\s*:\s*(.*)$/, 'solid', 'none'],
+      [/^(.+?)-->\s*(.+?)\s*:\s*(.*)$/, 'dashed', 'open'],
+      [/^(.+?)->\s*(.+?)\s*:\s*(.*)$/, 'solid', 'open'],
+    ]
+    for (const [pat, style, arrow] of patterns) {
+      const m = line.match(pat)
+      if (m) { const [, from, to, label] = m; ensure(from.trim()); ensure(to.trim()); messages.push({ from: from.trim(), to: to.trim(), label: label.trim(), style, arrow }); break }
+    }
+  }
+  return { participants, messages }
+}
+
+function serializeSeqData(participants: SeqParticipant[], messages: SeqMessage[]): string {
+  const lines = ['sequenceDiagram']
+  for (const p of participants) lines.push(p.label !== p.id ? `    participant ${p.id} as ${p.label}` : `    participant ${p.id}`)
+  for (const m of messages) {
+    const conn = m.style === 'solid' ? (m.arrow === 'filled' ? '->>' : m.arrow === 'open' ? '->' : '-)') : (m.arrow === 'filled' ? '-->>' : m.arrow === 'open' ? '-->' : '--)')
+    lines.push(`    ${m.from} ${conn} ${m.to}: ${m.label}`)
+  }
+  return lines.join('\n')
+}
 
 function getDiagramType(code: string): DiagramType {
   const stripped = code.trim().replace(/^%%\{[\s\S]*?\}%%\s*/i, '')
   if (/^(flowchart|graph)\s/i.test(stripped)) return 'flowchart'
   if (/^classDiagram/i.test(stripped)) return 'classDiagram'
   if (/^stateDiagram(-v2)?/i.test(stripped)) return 'stateDiagram'
+  if (/^sequenceDiagram/i.test(stripped)) return 'sequenceDiagram'
+  if (/^pie(\s|$)/i.test(stripped)) return 'pie'
+  if (/^xychart-beta/i.test(stripped)) return 'xychart'
   return null
 }
 
@@ -444,7 +490,7 @@ function MermaidPreview({ widthPx }: { widthPx: number }) {
 }
 
 /* ─── Code Editor Column (with copy + mermaid.live buttons) ─── */
-function CodeEditor({ supported, widthPx }: { supported: boolean; widthPx: number }) {
+function CodeEditor({ supported, widthPx, onSyncToCanvas }: { supported: boolean; widthPx: number; onSyncToCanvas: () => void }) {
   const { mermaid: code, setMermaid } = useStore();
   const importDiagram = useFlowStore((s) => s.importDiagram);
   const [copied, setCopied] = useState(false);
@@ -471,6 +517,8 @@ function CodeEditor({ supported, widthPx }: { supported: boolean; widthPx: numbe
       importDiagram(result.nodes, result.edges, {
         direction: 'TD', theme: 'default', look: 'classic', curveStyle: 'basis',
       });
+    } else {
+      onSyncToCanvas();
     }
   };
 
@@ -505,8 +553,15 @@ function CodeEditor({ supported, widthPx }: { supported: boolean; widthPx: numbe
           </ToolButton>
         )}
       </div>
-      <textarea value={code} onChange={(e) => setMermaid(e.target.value)} placeholder="输入 Mermaid 代码..."
-        style={{ flex: 1, background: "#fff", border: PANEL_BORDER, borderRadius: PANEL_RADIUS, padding: 12, fontSize: 13, fontFamily: "monospace", color: "#374151", resize: "none", outline: "none" }} />
+      <textarea
+        value={code}
+        onChange={(e) => setMermaid(e.target.value)}
+        onCopy={(e) => e.stopPropagation()}
+        onCut={(e) => e.stopPropagation()}
+        onPaste={(e) => e.stopPropagation()}
+        placeholder="输入 Mermaid 代码..."
+        style={{ flex: 1, background: "#fff", border: PANEL_BORDER, borderRadius: PANEL_RADIUS, padding: 12, fontSize: 13, fontFamily: "monospace", color: "#374151", resize: "none", outline: "none" }}
+      />
     </div>
   );
 }
@@ -524,11 +579,27 @@ function IconAutoLayout() {
 }
 
 /* ─── Visual Editor Column ─── */
-function VisualEditorColumn({ supported }: { supported: boolean }) {
+function VisualEditorColumn({ supported, diagramType, pieData, xyData, seqData, onSyncToCanvas }: {
+  supported: boolean; diagramType: string;
+  pieData: { title: string; data: Array<{ label: string; value: number }> } | null;
+  xyData: XyChartData | null;
+  seqData: { participants: SeqParticipant[]; messages: SeqMessage[] } | null;
+  onSyncToCanvas: () => void;
+}) {
   const { setNodes } = useFlowStore(useShallow((s) => ({ setNodes: s.setNodes })));
   const nodesLength = useFlowStore((s) => s.nodes.length);
   const addSubgraph = useFlowStore((s) => s.addSubgraph);
-  const { setMermaid } = useStore();
+  const { mermaid: code, setMermaid } = useStore();
+
+  // Local draft state for pie/xychart/seq — not synced to code until user clicks button
+  const [pieDraft, setPieDraft] = useState<{ title: string; data: Array<{ label: string; value: number }> } | null>(null)
+  const [xyDraft, setXyDraft] = useState<XyChartData | null>(null)
+  const [seqDraft, setSeqDraft] = useState<{ participants: SeqParticipant[]; messages: SeqMessage[] } | null>(null)
+
+  // When incoming data changes (sync to canvas triggered), reset drafts
+  useEffect(() => { setPieDraft(pieData) }, [pieData])
+  useEffect(() => { setXyDraft(xyData) }, [xyData])
+  useEffect(() => { setSeqDraft(seqData) }, [seqData])
 
   const handleAutoLayout = () => {
     const { nodes, edges, direction } = useFlowStore.getState();
@@ -549,11 +620,30 @@ function VisualEditorColumn({ supported }: { supported: boolean }) {
     }
   };
 
+  const handleDraftToCode = () => {
+    if (diagramType === 'pie' && pieDraft) {
+      setMermaid(serializePieChart(pieDraft.title, pieDraft.data))
+    } else if (diagramType === 'xychart' && xyDraft) {
+      setMermaid(serializeXyChart(xyDraft))
+    } else if (diagramType === 'sequenceDiagram' && seqDraft) {
+      setMermaid(serializeSeqData(seqDraft.participants, seqDraft.messages))
+    }
+  }
+
+  const isFlowLike = diagramType === 'flowchart' || diagramType === 'classDiagram' || diagramType === 'stateDiagram'
+  const isSpecial = diagramType === 'pie' || diagramType === 'xychart' || diagramType === 'sequenceDiagram'
+
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 200 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
         <div style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>可视化编辑</div>
-        {supported && (
+        {isSpecial && (
+          <ToolButton onClick={handleDraftToCode} title="将可视化编辑内容同步到代码"
+            style={{ background: "#ECFDF5", color: "#059669", border: "1px solid rgba(5,150,105,0.3)" }}>
+            同步回代码
+          </ToolButton>
+        )}
+        {supported && isFlowLike && (
           <>
             <ToolButton onClick={handleVisualToCode} disabled={nodesLength === 0} title="将画布内容同步到代码"
               style={{ background: "#ECFDF5", color: "#059669", border: "1px solid rgba(5,150,105,0.3)" }}>
@@ -562,14 +652,20 @@ function VisualEditorColumn({ supported }: { supported: boolean }) {
             <ToolButton onClick={handleAutoLayout} disabled={nodesLength === 0}>
               <IconAutoLayout /> 自动布局
             </ToolButton>
-            <ToolButton onClick={() => addSubgraph()}>
-              子图
-            </ToolButton>
+            {diagramType === 'flowchart' && (
+              <ToolButton onClick={() => addSubgraph()}>子图</ToolButton>
+            )}
           </>
         )}
       </div>
       <div style={{ flex: 1, background: "#fff", border: PANEL_BORDER, borderRadius: PANEL_RADIUS, overflow: "hidden", position: "relative" }}>
-        {supported ? (
+        {diagramType === 'pie' && pieDraft ? (
+          <PieEditor title={pieDraft.title} data={pieDraft.data} onUpdate={(title, data) => setPieDraft({ title, data })} />
+        ) : diagramType === 'xychart' && xyDraft ? (
+          <XyChartEditor data={xyDraft} onUpdate={setXyDraft} />
+        ) : diagramType === 'sequenceDiagram' && seqDraft ? (
+          <SequenceEditor participants={seqDraft.participants} messages={seqDraft.messages} onUpdate={(p, m) => setSeqDraft({ participants: p, messages: m })} />
+        ) : isFlowLike && supported ? (
           <><Canvas /><ZoomControls /></>
         ) : (
           <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#9CA3AF", fontSize: 13 }}>
@@ -581,20 +677,146 @@ function VisualEditorColumn({ supported }: { supported: boolean }) {
   );
 }
 
+/* ─── Class Diagram Settings ─── */
+function ClassDiagramSettingsSection() {
+  const { drawingShape, setDrawingShape } = useFlowStore();
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div>
+        <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 4 }}>节点形状</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 4 }}>
+          <FlatButton
+            onClick={() => setDrawingShape('subroutine')}
+            active={drawingShape === 'subroutine'}
+            style={{ fontSize: 10, padding: "6px 8px", justifyContent: "flex-start" }}>
+            📦 类（双线框）
+          </FlatButton>
+        </div>
+      </div>
+      <div>
+        <div style={{ fontSize: 10, color: "#6B7280", lineHeight: 1.4, marginTop: 4 }}>
+          关系类型：
+        </div>
+        <div style={{ fontSize: 9, color: "#9CA3AF", lineHeight: 1.5, fontFamily: "monospace", marginTop: 4 }}>
+          --|&gt; 继承<br />
+          ..|&gt; 实现<br />
+          --* 组合<br />
+          --o 聚合<br />
+          --&gt; 依赖<br />
+          -- 关联
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── State Diagram Settings ─── */
+function StateDiagramSettingsSection() {
+  const { drawingShape, setDrawingShape } = useFlowStore();
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div>
+        <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 4 }}>节点形状</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 4 }}>
+          <FlatButton
+            onClick={() => setDrawingShape('rounded')}
+            active={drawingShape === 'rounded'}
+            style={{ fontSize: 10, padding: "6px 8px", justifyContent: "flex-start" }}>
+            ▢ 状态（圆角）
+          </FlatButton>
+          <FlatButton
+            onClick={() => setDrawingShape('circle')}
+            active={drawingShape === 'circle'}
+            style={{ fontSize: 10, padding: "6px 8px", justifyContent: "flex-start" }}>
+            ● 开始/结束
+          </FlatButton>
+          <FlatButton
+            onClick={() => setDrawingShape('subroutine')}
+            active={drawingShape === 'subroutine'}
+            style={{ fontSize: 10, padding: "6px 8px", justifyContent: "flex-start" }}>
+            ▣ 复合状态
+          </FlatButton>
+        </div>
+      </div>
+      <div>
+        <div style={{ fontSize: 10, color: "#6B7280", lineHeight: 1.4, marginTop: 4 }}>
+          提示：
+        </div>
+        <div style={{ fontSize: 9, color: "#9CA3AF", lineHeight: 1.5, marginTop: 4 }}>
+          • 使用圆角矩形表示普通状态<br />
+          • 使用圆形表示开始/结束<br />
+          • 使用双线框表示复合状态
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SequenceDiagramSettingsSection() {
+  const { drawingShape, setDrawingShape } = useFlowStore();
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div>
+        <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 4 }}>参与者形状</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 4 }}>
+          <FlatButton
+            onClick={() => setDrawingShape('rectangle')}
+            active={drawingShape === 'rectangle'}
+            style={{ fontSize: 10, padding: "6px 8px", justifyContent: "flex-start" }}>
+            ▭ 参与者（矩形）
+          </FlatButton>
+        </div>
+      </div>
+      <div>
+        <div style={{ fontSize: 10, color: "#6B7280", lineHeight: 1.4, marginTop: 4 }}>消息类型：</div>
+        <div style={{ fontSize: 9, color: "#9CA3AF", lineHeight: 1.5, fontFamily: "monospace", marginTop: 4 }}>
+          -&gt;&gt; 同步消息（实线箭头）<br />
+          --&gt;&gt; 异步消息（虚线箭头）<br />
+          -) 开放箭头（实线）<br />
+          --) 开放箭头（虚线）
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Right Sidebar: Object Settings ─── */
-function RightSidebar({ supported }: { supported: boolean }) {
+function RightSidebar({ supported, diagramType }: { supported: boolean; diagramType: string }) {
   if (!supported) return null;
+
   return (
     <div style={{
       width: 200, background: NEU_BG, borderLeft: PANEL_BORDER,
       padding: 12, overflowY: "auto", flexShrink: 0, display: "flex", flexDirection: "column", gap: 14,
     }}>
-      <Section title="流程图设置">
-        <FlowchartSettingsSection />
-      </Section>
-      <Section title="形状">
-        <ShapesSection />
-      </Section>
+      {diagramType === 'flowchart' && (
+        <>
+          <Section title="流程图设置">
+            <FlowchartSettingsSection />
+          </Section>
+          <Section title="形状工具箱">
+            <ShapesSection />
+          </Section>
+        </>
+      )}
+      {diagramType === 'classDiagram' && (
+        <Section title="类图工具">
+          <ClassDiagramSettingsSection />
+        </Section>
+      )}
+      {diagramType === 'stateDiagram' && (
+        <Section title="状态图工具">
+          <StateDiagramSettingsSection />
+        </Section>
+      )}
+      {diagramType === 'sequenceDiagram' && (
+        <Section title="时序图工具">
+          <SequenceDiagramSettingsSection />
+        </Section>
+      )}
       <ObjectSettingsSection />
     </div>
   );
@@ -604,7 +826,37 @@ function RightSidebar({ supported }: { supported: boolean }) {
 function EditorContent() {
   const { nodes, edges, direction, theme, look, curveStyle } = useFlowStore();
   const { mermaid: code, setMermaid } = useStore();
-  const supported = isFlowchart(code) || getDiagramType(code) === 'classDiagram' || getDiagramType(code) === 'stateDiagram' || (!code && nodes.length > 0);
+  const diagramType = getDiagramType(code) || 'flowchart';
+  const supported = isFlowchart(code) || diagramType === 'stateDiagram' || diagramType === 'sequenceDiagram' || diagramType === 'pie' || diagramType === 'xychart' || (!code && nodes.length > 0)
+
+  // Pie chart state
+  const [pieData, setPieData] = useState<{ title: string; data: Array<{ label: string; value: number }> } | null>(null)
+  const [xyData, setXyData] = useState<XyChartData | null>(null)
+  const [seqData, setSeqData] = useState<{ participants: SeqParticipant[]; messages: SeqMessage[] } | null>(null)
+
+  // Only reset editors when diagram type changes (not on every keystroke)
+  const prevDiagramType = useRef<string | null>(null)
+  useEffect(() => {
+    if (diagramType !== prevDiagramType.current) {
+      prevDiagramType.current = diagramType
+      if (diagramType !== 'pie') setPieData(null)
+      if (diagramType !== 'xychart') setXyData(null)
+      if (diagramType !== 'sequenceDiagram') setSeqData(null)
+    }
+  }, [diagramType])
+
+  // Manual sync: parse current code into visual editor
+  const handleSyncToCanvas = useCallback(() => {
+    if (diagramType === 'pie') {
+      const result = parseMermaidPieChart(code)
+      if (!result.error) setPieData({ title: result.title, data: result.data })
+    } else if (diagramType === 'xychart') {
+      const result = parseMermaidXyChart(code)
+      if (!result.error && result.data) setXyData(result.data)
+    } else if (diagramType === 'sequenceDiagram') {
+      setSeqData(parseSeqData(code))
+    }
+  }, [code, diagramType])
 
   // Resizable column widths (ratio 3:3:5)
   const containerRef = useRef<HTMLDivElement>(null);
@@ -628,6 +880,8 @@ function EditorContent() {
       setMermaid(serializeClassDiagram(nodes, edges));
     } else if (type === 'stateDiagram') {
       setMermaid(serializeStateDiagram(nodes, edges));
+    } else if (type === 'sequenceDiagram') {
+      setMermaid(serializeSequenceDiagram(nodes, edges));
     } else {
       const syntax = serialize(nodes, edges, { direction, theme, look, curveStyle });
       setMermaid(syntax);
@@ -638,13 +892,13 @@ function EditorContent() {
     <div style={{ height: "100vh", width: "100vw", overflow: "hidden", display: "flex", background: NEU_BG }}>
       <LeftPanel />
       <div ref={containerRef} style={{ flex: 1, display: "flex", padding: 12, minWidth: 0, overflow: "hidden" }}>
-        <CodeEditor supported={supported} widthPx={codeW} />
+        <CodeEditor supported={supported} widthPx={codeW} onSyncToCanvas={handleSyncToCanvas} />
         <ResizeDivider onDrag={(dx) => setCodeW(w => Math.max(200, w + dx))} />
         <MermaidPreview widthPx={previewW} />
         <ResizeDivider onDrag={(dx) => setPreviewW(w => Math.max(200, w + dx))} />
-        <VisualEditorColumn supported={supported} />
+        <VisualEditorColumn supported={supported} diagramType={diagramType} pieData={pieData} xyData={xyData} seqData={seqData} onSyncToCanvas={handleSyncToCanvas} />
       </div>
-      <RightSidebar supported={supported} />
+      <RightSidebar supported={supported} diagramType={diagramType} />
     </div>
   );
 }
