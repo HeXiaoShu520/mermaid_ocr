@@ -37,13 +37,15 @@ export function SequenceEditor({ participants, messages, onUpdate }: Props) {
   const [translate, setTranslate] = useState({ x: 0, y: 0 })
   const [scale, setScale] = useState(1)
   const viewportRef = useRef<HTMLDivElement>(null)
+  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     const el = viewportRef.current
     if (!el) return
     let dragging = false, lx = 0, ly = 0
     const onDown = (e: PointerEvent) => {
-      if ((e.target as Element).closest('input,foreignObject')) return
+      const tag = (e.target as Element).tagName.toLowerCase()
+      if (['input', 'text', 'tspan', 'polygon', 'path', 'line', 'rect', 'circle', 'ellipse'].includes(tag)) return
       dragging = true; lx = e.clientX; ly = e.clientY
       el.setPointerCapture(e.pointerId); el.style.cursor = 'grabbing'
     }
@@ -177,7 +179,19 @@ export function SequenceEditor({ participants, messages, onUpdate }: Props) {
 
           return (
             <g key={i} style={{ cursor: 'pointer' }}
-              onClick={e => { e.stopPropagation(); setSelectedM(i === selectedM ? null : i) }}>
+              onClick={e => {
+                e.stopPropagation()
+                if (clickTimer.current) {
+                  clearTimeout(clickTimer.current)
+                  clickTimer.current = null
+                  setEditingM(i); setMDraft(m.label)
+                } else {
+                  clickTimer.current = setTimeout(() => {
+                    clickTimer.current = null
+                    setSelectedM(i === selectedM ? null : i)
+                  }, 250)
+                }
+              }}>
               {/* hit area */}
               <line x1={x1} y1={y} x2={x2} y2={y} stroke="transparent" strokeWidth={16} />
               {/* line */}
@@ -212,8 +226,7 @@ export function SequenceEditor({ participants, messages, onUpdate }: Props) {
                 </foreignObject>
               ) : (
                 <text x={isSelf ? x1 + 55 : (x1 + x2) / 2} y={y - 6}
-                  textAnchor="middle" fontSize={11} fill={isSelected ? '#2563eb' : '#374151'}
-                  onDoubleClick={e => { e.stopPropagation(); setEditingM(i); setMDraft(m.label) }}>
+                  textAnchor="middle" fontSize={11} fill={isSelected ? '#2563eb' : '#374151'}>
                   {m.label}
                 </text>
               )}
