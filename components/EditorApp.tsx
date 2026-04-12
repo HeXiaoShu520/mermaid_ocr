@@ -21,6 +21,7 @@ import { useStore } from "@/store/useStore";
 import { useShallow } from "zustand/react/shallow";
 import { templateCategories } from "@/lib/templates";
 import { fileToBase64 } from "@/lib/utils";
+import { getFavorites, addFavorite, updateFavorite, deleteFavorite, initializeSampleFavorites, type Favorite } from "@/lib/favorites";
 import mermaid from "mermaid";
 import "@xyflow/react/dist/style.css";
 import { PieEditor } from "@/components/editor/PieEditor";
@@ -297,6 +298,14 @@ function LeftPanel() {
   const { setMermaid } = useStore();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'image' | 'templates' | 'favorites' | 'settings'>('image');
+  const [favorites, setFavorites] = useState<Favorite[]>([]);
+
+  // Initialize favorites on mount
+  useEffect(() => {
+    initializeSampleFavorites();
+    setFavorites(getFavorites());
+  }, []);
 
   const handleFile = async (file: File) => {
     if (file.size > 5 * 1024 * 1024) { setError("文件不能超过 5MB"); return; }
@@ -314,40 +323,144 @@ function LeftPanel() {
     finally { setLoading(false); }
   };
 
+  const handleLoadFavorite = (fav: Favorite) => {
+    setMermaid(fav.code);
+  };
+
+  const handleRenameFavorite = (fav: Favorite) => {
+    const newName = prompt("重命名收藏", fav.name);
+    if (newName && newName.trim()) {
+      updateFavorite(fav.id, { name: newName.trim() });
+      setFavorites(getFavorites());
+    }
+  };
+
+  const handleDeleteFavorite = (fav: Favorite) => {
+    if (confirm(`确定要删除收藏"${fav.name}"吗？`)) {
+      deleteFavorite(fav.id);
+      setFavorites(getFavorites());
+    }
+  };
+
+  const tabStyle = (tab: typeof activeTab) => ({
+    flex: 1,
+    padding: "8px 12px",
+    fontSize: 11,
+    fontWeight: 600,
+    color: activeTab === tab ? "#059669" : "#6B7280",
+    background: activeTab === tab ? "rgba(5,150,105,0.1)" : "transparent",
+    border: "none",
+    borderBottom: activeTab === tab ? "2px solid #059669" : "2px solid transparent",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  });
+
   return (
     <div style={{
       width: 280, background: NEU_BG, borderRight: PANEL_BORDER,
-      display: "flex", flexDirection: "column", padding: 14, gap: 14, overflowY: "auto", flexShrink: 0,
+      display: "flex", flexDirection: "column", flexShrink: 0,
     }}>
-      <Section title="图片导入">
-        <input id="img-upload" type="file" accept="image/png,image/jpeg" style={{ display: "none" }}
-          onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
-        <FlatButton onClick={() => document.getElementById("img-upload")?.click()} disabled={loading}
-          style={{ width: "100%" }}>
-          {loading ? "转换中..." : "📷 上传图片"}
-        </FlatButton>
-        {error && <div style={{ fontSize: 10, color: "#ef4444", marginTop: 6 }}>{error}</div>}
-      </Section>
+      {/* Tab Navigation */}
+      <div style={{ display: "flex", borderBottom: PANEL_BORDER }}>
+        <button onClick={() => setActiveTab('image')} style={tabStyle('image')}>📷 图片</button>
+        <button onClick={() => setActiveTab('templates')} style={tabStyle('templates')}>📋 模板</button>
+        <button onClick={() => setActiveTab('favorites')} style={tabStyle('favorites')}>⭐ 收藏</button>
+        <button onClick={() => setActiveTab('settings')} style={tabStyle('settings')}>⚙️ 设置</button>
+      </div>
 
-      <Section title="图表设置">
-        <GlobalSettingsSection />
-      </Section>
+      {/* Tab Content */}
+      <div style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column", gap: 14 }}>
+        {activeTab === 'image' && (
+          <Section title="图片导入">
+            <input id="img-upload" type="file" accept="image/png,image/jpeg" style={{ display: "none" }}
+              onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
+            <FlatButton onClick={() => document.getElementById("img-upload")?.click()} disabled={loading}
+              style={{ width: "100%" }}>
+              {loading ? "转换中..." : "📷 上传图片"}
+            </FlatButton>
+            {error && <div style={{ fontSize: 10, color: "#ef4444", marginTop: 6 }}>{error}</div>}
+          </Section>
+        )}
 
-      <Section title="模板">
-        {templateCategories.map((cat) => (
-          <div key={cat.name} style={{ marginBottom: 10 }}>
-            <div style={{ fontSize: 10, fontWeight: 600, color: "#9CA3AF", marginBottom: 4 }}>{cat.name}</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-              {cat.templates.map((t) => (
-                <FlatButton key={t.name} onClick={() => setMermaid(t.code)}
-                  style={{ fontSize: 10, padding: "3px 7px" }}>
-                  {t.name}
-                </FlatButton>
-              ))}
-            </div>
-          </div>
-        ))}
-      </Section>
+        {activeTab === 'templates' && (
+          <Section title="模板">
+            {templateCategories.map((cat) => (
+              <div key={cat.name} style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 10, fontWeight: 600, color: "#9CA3AF", marginBottom: 4 }}>{cat.name}</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                  {cat.templates.map((t) => (
+                    <FlatButton key={t.name} onClick={() => setMermaid(t.code)}
+                      style={{ fontSize: 10, padding: "3px 7px" }}>
+                      {t.name}
+                    </FlatButton>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </Section>
+        )}
+
+        {activeTab === 'favorites' && (
+          <Section title="我的收藏">
+            {favorites.length === 0 ? (
+              <div style={{ fontSize: 11, color: "#9CA3AF", textAlign: "center", padding: "20px 0" }}>
+                暂无收藏<br />
+                <span style={{ fontSize: 10 }}>在代码编辑器中点击"添加到收藏夹"保存图表</span>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {favorites.map((fav) => (
+                  <div key={fav.id} style={{
+                    background: "#fff",
+                    border: PANEL_BORDER,
+                    borderRadius: 6,
+                    padding: 8,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                  }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "#374151" }}>{fav.name}</div>
+                    <div style={{ fontSize: 9, color: "#9CA3AF" }}>
+                      {new Date(fav.updatedAt).toLocaleString('zh-CN', {
+                        month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                      })}
+                    </div>
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <button onClick={() => handleLoadFavorite(fav)}
+                        style={{
+                          flex: 1, fontSize: 10, padding: "4px 8px", background: "#ECFDF5", color: "#059669",
+                          border: "1px solid rgba(5,150,105,0.3)", borderRadius: 4, cursor: "pointer",
+                        }}>
+                        ▶️ 加载
+                      </button>
+                      <button onClick={() => handleRenameFavorite(fav)}
+                        style={{
+                          fontSize: 10, padding: "4px 8px", background: "#FEF3C7", color: "#D97706",
+                          border: "1px solid rgba(217,119,6,0.3)", borderRadius: 4, cursor: "pointer",
+                        }}>
+                        ✏️
+                      </button>
+                      <button onClick={() => handleDeleteFavorite(fav)}
+                        style={{
+                          fontSize: 10, padding: "4px 8px", background: "#FEE2E2", color: "#DC2626",
+                          border: "1px solid rgba(220,38,38,0.3)", borderRadius: 4, cursor: "pointer",
+                        }}>
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>
+        )}
+
+        {activeTab === 'settings' && (
+          <Section title="图表设置">
+            <GlobalSettingsSection />
+          </Section>
+        )}
+      </div>
     </div>
   );
 }
@@ -497,6 +610,7 @@ function CodeEditor({ supported, widthPx, onSyncToCanvas }: { supported: boolean
   const { mermaid: code, setMermaid } = useStore();
   const importDiagram = useFlowStore((s) => s.importDiagram);
   const [copied, setCopied] = useState(false);
+  const [favorites, setFavorites] = useState<Favorite[]>([]);
 
   const handleCodeToVisual = () => {
     if (!code.trim()) return;
@@ -539,6 +653,19 @@ function CodeEditor({ supported, widthPx, onSyncToCanvas }: { supported: boolean
     window.open(`https://mermaid.live/edit#base64:${encoded}`, "_blank");
   };
 
+  const handleAddToFavorites = () => {
+    if (!code.trim()) {
+      alert("请先输入 Mermaid 代码");
+      return;
+    }
+    const name = prompt("请输入收藏名称", "我的图表");
+    if (name && name.trim()) {
+      addFavorite(name.trim(), code);
+      setFavorites(getFavorites());
+      alert("已添加到收藏夹！");
+    }
+  };
+
   return (
     <div style={{ width: widthPx || '27%', flexShrink: 0, display: "flex", flexDirection: "column", minWidth: 200 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
@@ -548,6 +675,10 @@ function CodeEditor({ supported, widthPx, onSyncToCanvas }: { supported: boolean
         </ToolButton>
         <ToolButton onClick={handleMermaidLive} disabled={!code}>
           mermaid.ai编辑
+        </ToolButton>
+        <ToolButton onClick={handleAddToFavorites} disabled={!code} title="添加到收藏夹"
+          style={{ background: "#FEF3C7", color: "#D97706", border: "1px solid rgba(217,119,6,0.3)" }}>
+          ⭐ 收藏
         </ToolButton>
         {supported && (
           <ToolButton onClick={handleCodeToVisual} title="将代码解析到可视化编辑器"
