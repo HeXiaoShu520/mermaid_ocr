@@ -1,12 +1,12 @@
 'use client'
 
 import { Handle, Position, NodeResizer, type NodeProps } from '@xyflow/react'
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useRef, useState, Fragment } from 'react'
 import { useFlowStore, type FlowNodeData, type NodeShape } from '@/lib/flowStore'
 
 // Shared resizer styles — larger handles for easier interaction
-const RESIZER_HANDLE_STYLE: React.CSSProperties = { width: 10, height: 10, borderRadius: 2 }
-const RESIZER_LINE_STYLE: React.CSSProperties = { borderWidth: 3 }
+const RESIZER_HANDLE_STYLE: React.CSSProperties = { width: 8, height: 8, borderRadius: 2 }
+const RESIZER_LINE_STYLE: React.CSSProperties = { borderWidth: 2 }
 
 // ─── SVG shape paths (viewBox 0 0 200 100, preserveAspectRatio="none") ────────
 // All points are in the 200×100 coordinate space so they stretch with the node.
@@ -233,6 +233,10 @@ function SvgCurvTrap({ fill, stroke, sw }: { fill: string; stroke: string; sw: n
 function SvgWinPane({ fill, stroke, sw }: { fill: string; stroke: string; sw: number }) {
   return <><rect x={sw} y={sw} width={200 - sw * 2} height={100 - sw * 2} rx={3} fill={fill} stroke={stroke} strokeWidth={sw} /><line x1={100} y1={sw} x2={100} y2={100 - sw} stroke={stroke} strokeWidth={sw * 0.6} /><line x1={sw} y1={50} x2={200 - sw} y2={50} stroke={stroke} strokeWidth={sw * 0.6} /></>
 }
+function SvgClassRect({ fill, stroke, sw }: { fill: string; stroke: string; sw: number }) {
+  // Class diagram: rectangle with two horizontal lines (like 目)
+  return <><rect x={sw} y={sw} width={200 - sw * 2} height={100 - sw * 2} rx={3} fill={fill} stroke={stroke} strokeWidth={sw} /><line x1={sw} y1={33} x2={200 - sw} y2={33} stroke={stroke} strokeWidth={sw * 0.6} /><line x1={sw} y1={66} x2={200 - sw} y2={66} stroke={stroke} strokeWidth={sw * 0.6} /></>
+}
 function SvgBolt({ fill, stroke, sw }: { fill: string; stroke: string; sw: number }) {
   return <polygon points="115,2 60,50 100,50 85,98 140,50 100,50" fill={fill} stroke={stroke} strokeWidth={sw} />
 }
@@ -287,6 +291,7 @@ const SVG_RENDERERS: Partial<Record<NodeShape, SvgShapeRenderer>> = {
   'crossed-circle': SvgCrossedCircle,
   'lin-rect': SvgLinRect,
   'div-rect': SvgDivRect,
+  'class-rect': SvgClassRect,
   'st-rect': SvgStRect,
   'tag-rect': SvgTagRect,
   'notch-rect': SvgNotchRect,
@@ -321,8 +326,6 @@ function NodeHandles({ visible }: { visible?: boolean }) {
   const base = {
     zIndex: 30,
     pointerEvents: 'all',
-    opacity: visible ? 1 : 0,
-    transition: 'opacity 0.15s',
   } as const
 
   const topStyle = { ...base, top: 2 }
@@ -332,12 +335,22 @@ function NodeHandles({ visible }: { visible?: boolean }) {
 
   const cls = "!bg-gray-300/70 hover:!bg-blue-400 !w-2.5 !h-2.5 !border !border-gray-400/50 hover:!border-blue-500 transition-colors"
 
+  const positions = [Position.Top, Position.Bottom, Position.Left, Position.Right]
+  const styleMap = {
+    [Position.Top]: topStyle,
+    [Position.Bottom]: bottomStyle,
+    [Position.Left]: leftStyle,
+    [Position.Right]: rightStyle,
+  }
+
   return (
     <>
-      <Handle id="top-target" type="target" position={Position.Top} className={cls} style={topStyle} />
-      <Handle id="left-target" type="target" position={Position.Left} className={cls} style={leftStyle} />
-      <Handle id="bottom-source" type="source" position={Position.Bottom} className={cls} style={bottomStyle} />
-      <Handle id="right-source" type="source" position={Position.Right} className={cls} style={rightStyle} />
+      {positions.map((pos) => (
+        <Fragment key={pos}>
+          <Handle id={`${pos}-s`} type="source" position={pos} className={cls} style={{ ...styleMap[pos], opacity: visible ? 1 : 0 }} />
+          <Handle id={`${pos}-t`} type="target" position={pos} className="!w-0 !h-0 !min-w-0 !min-h-0 !border-0 !bg-transparent" style={styleMap[pos]} />
+        </Fragment>
+      ))}
     </>
   )
 }
@@ -366,16 +379,21 @@ function NodeLabel({
 }: LabelProps) {
   if (editing) {
     return (
-      <input
-        ref={inputRef}
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={onCommit}
-        onKeyDown={onKeyDown}
-        className="bg-transparent border-none outline-none text-center text-sm w-full"
-        autoFocus
-        aria-label="节点标签"
-      />
+      <div className="relative w-full nodrag">
+        <span className="text-sm font-medium leading-snug invisible whitespace-pre">{draft || ' '}</span>
+        <input
+          ref={inputRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={onCommit}
+          onKeyDown={onKeyDown}
+          onMouseDown={(e) => e.stopPropagation()}
+          className="absolute inset-0 bg-transparent border-none outline-none text-center text-sm font-medium w-full nodrag"
+          style={{ color: color || '#1f2937' }}
+          autoFocus
+          aria-label="节点标签"
+        />
+      </div>
     )
   }
   return (
@@ -399,7 +417,7 @@ export function FlowNode({ id, data, selected }: NodeProps) {
   const pushHistory = useFlowStore((s) => s.pushHistory)
 
   const commitLabel = useCallback(() => {
-    const trimmed = draft.trim() || '节点'
+    const trimmed = draft.trim()
     updateNodeLabel(id, trimmed)
     setEditing(false)
   }, [draft, id, updateNodeLabel])
@@ -409,7 +427,6 @@ export function FlowNode({ id, data, selected }: NodeProps) {
     e.preventDefault()
     setDraft(nodeData.label)
     setEditing(true)
-    setTimeout(() => inputRef.current?.select(), 0)
   }, [nodeData.label])
 
   const handleKeyDown = useCallback(
@@ -423,6 +440,7 @@ export function FlowNode({ id, data, selected }: NodeProps) {
 
   const shape = (nodeData.shape ?? 'rectangle') as NodeShape
   const fillColor = nodeData.fillColor || '#ffffff'
+  const isSelected = selected && !editing
   const strokeColor = nodeData.strokeColor || (selected ? '#3b82f6' : '#9ca3af')
   const textColor = nodeData.textColor || '#1f2937'
   const strokeWidth = selected ? 3 : 2
@@ -440,20 +458,39 @@ export function FlowNode({ id, data, selected }: NodeProps) {
 
   // ── Subgraph container ─────────────────────────────────────────────────────
   if (nodeData.isSubgraph) {
+    const childCount = useFlowStore.getState().nodes.filter(n => n.parentId === id).length
     return (
       <div
-        className="relative w-full h-full rounded-xl cursor-pointer"
+        className="relative w-full h-full rounded-xl cursor-pointer transition-all duration-150"
         style={{
-          border: `2px dashed ${strokeColor}`,
-          backgroundColor: nodeData.fillColor ? nodeData.fillColor : 'rgba(59,130,246,0.04)',
+          border: selected
+            ? `2px solid #3b82f6`
+            : isHovered
+              ? `2px solid ${strokeColor}`
+              : `2px dashed ${strokeColor}`,
+          backgroundColor: nodeData.fillColor
+            ? nodeData.fillColor
+            : selected
+              ? 'rgba(59,130,246,0.08)'
+              : isHovered
+                ? 'rgba(59,130,246,0.06)'
+                : 'rgba(59,130,246,0.03)',
+          boxShadow: selected
+            ? '0 0 0 3px rgba(59,130,246,0.2)'
+            : isHovered
+              ? '0 2px 8px rgba(0,0,0,0.08)'
+              : 'none',
         }}
         onDoubleClick={handleDoubleClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
         <NodeResizer minWidth={200} minHeight={120} isVisible={!!selected} handleStyle={RESIZER_HANDLE_STYLE} lineStyle={RESIZER_LINE_STYLE} />
-        <div className={`absolute top-2 left-3 text-xs font-semibold text-gray-500 ${editing ? '' : 'select-none pointer-events-none'}`}>
-          <NodeLabel {...labelProps} color={textColor} />
+        <div className={`absolute top-2 left-3 flex items-center gap-1.5 text-xs font-semibold ${editing ? '' : 'select-none pointer-events-none'}`}
+          style={{ color: selected ? '#3b82f6' : textColor }}>
+          <NodeLabel {...labelProps} color={selected ? '#3b82f6' : textColor} />
         </div>
-        <NodeHandles visible={!!selected} />
+        <NodeHandles visible={!!selected || isHovered} />
       </div>
     )
   }
@@ -482,7 +519,7 @@ export function FlowNode({ id, data, selected }: NodeProps) {
         <NodeResizer
           minWidth={isFork ? 100 : 80}
           minHeight={isFork ? 16 : isCylinder ? 60 : isSquarish ? 60 : 54}
-          isVisible={!!selected}
+          isVisible={isSelected}
           onResizeEnd={() => pushHistory()}
           handleStyle={RESIZER_HANDLE_STYLE}
           lineStyle={RESIZER_LINE_STYLE}
@@ -500,7 +537,7 @@ export function FlowNode({ id, data, selected }: NodeProps) {
         >
           {!isFork && <NodeLabel {...labelProps} />}
         </div>
-        <NodeHandles visible={!!selected || isHovered} />
+        <NodeHandles visible={isSelected || isHovered} />
       </div>
     )
   }
@@ -515,8 +552,8 @@ export function FlowNode({ id, data, selected }: NodeProps) {
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <NodeResizer minWidth={40} minHeight={24} isVisible={!!selected} onResizeEnd={() => pushHistory()} handleStyle={RESIZER_HANDLE_STYLE} lineStyle={RESIZER_LINE_STYLE} />
-        <NodeHandles visible={!!selected || isHovered} />
+        <NodeResizer minWidth={40} minHeight={24} isVisible={isSelected} onResizeEnd={() => pushHistory()} handleStyle={RESIZER_HANDLE_STYLE} lineStyle={RESIZER_LINE_STYLE} />
+        <NodeHandles visible={isSelected || isHovered} />
         <NodeLabel {...labelProps} />
       </div>
     )
@@ -573,12 +610,12 @@ export function FlowNode({ id, data, selected }: NodeProps) {
       <NodeResizer
         minWidth={80}
         minHeight={isCircleShape ? 80 : 40}
-        isVisible={!!selected}
+        isVisible={isSelected}
         onResizeEnd={() => pushHistory()}
         handleStyle={RESIZER_HANDLE_STYLE}
         lineStyle={RESIZER_LINE_STYLE}
       />
-      <NodeHandles visible={!!selected || isHovered} />
+      <NodeHandles visible={isSelected || isHovered} />
       <NodeLabel {...labelProps} />
     </div>
   )

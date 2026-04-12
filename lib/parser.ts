@@ -10,7 +10,7 @@ import type {
   NodeShape,
   Theme,
 } from './flowStore'
-import { applyDagreLayout } from './layout'
+import { applyDagreLayout, updateEdgeHandles } from './layout'
 
 // ─── Public result type ───────────────────────────────────────────────────────
 
@@ -322,6 +322,12 @@ export function parseMermaidFlowchart(syntax: string): ParseResult {
           node.extent = 'parent'
         }
         nodesMap.set(ref.id, node)
+      } else if (currentSubgraphId) {
+        // Node already registered (e.g. declared before subgraph block) — assign to subgraph
+        const existing = nodesMap.get(ref.id)!
+        if (!existing.parentId) {
+          nodesMap.set(ref.id, { ...existing, parentId: currentSubgraphId, extent: 'parent' })
+        }
       }
     }
 
@@ -348,9 +354,9 @@ export function parseMermaidFlowchart(syntax: string): ParseResult {
       }
 
       // ── Flowchart header
-      const headerMatch = line.match(/^flowchart\s+(TD|LR|BT|RL)/)
+      const headerMatch = line.match(/^flowchart\s+(TD|TB|LR|BT|RL)/)
       if (headerMatch) {
-        direction = headerMatch[1] as Direction
+        direction = (headerMatch[1] === 'TB' ? 'TD' : headerMatch[1]) as Direction
         foundHeader = true
         continue
       }
@@ -359,7 +365,7 @@ export function parseMermaidFlowchart(syntax: string): ParseResult {
 
       // ── Subgraph block
       if (line.startsWith('subgraph ')) {
-        const m = line.match(/^subgraph\s+(\w+)(?:\s+\["?([^"\]]*)"?\])?/)
+        const m = line.match(/^subgraph\s+(\S+?)(?:\s*\["?([^"\]]*)"?\])?$/)
         if (m) {
           currentSubgraphId = m[1]
           const label = m[2] ?? m[1]
@@ -471,7 +477,10 @@ export function parseMermaidFlowchart(syntax: string): ParseResult {
     // Layout
     nodes = applyDagreLayout(nodes, edges, direction)
 
-    return { nodes, edges, direction, theme, look, curveStyle, error: null }
+    // Update edge handles based on layout direction
+    const updatedEdges = updateEdgeHandles(nodes, edges, direction)
+
+    return { nodes, edges: updatedEdges, direction, theme, look, curveStyle, error: null }
   } catch (err) {
     return { ...empty, error: err instanceof Error ? err.message : 'Parse error' }
   }

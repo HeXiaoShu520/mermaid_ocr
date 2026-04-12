@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 export interface SeqParticipant {
   id: string
@@ -34,6 +34,44 @@ export function SequenceEditor({ participants, messages, onUpdate }: Props) {
   const [editingM, setEditingM] = useState<number | null>(null)
   const [mDraft, setMDraft] = useState('')
   const [selectedM, setSelectedM] = useState<number | null>(null)
+  const [translate, setTranslate] = useState({ x: 0, y: 0 })
+  const [scale, setScale] = useState(1)
+  const viewportRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = viewportRef.current
+    if (!el) return
+    let dragging = false, lx = 0, ly = 0
+    const onDown = (e: PointerEvent) => {
+      if ((e.target as Element).closest('input,foreignObject')) return
+      dragging = true; lx = e.clientX; ly = e.clientY
+      el.setPointerCapture(e.pointerId); el.style.cursor = 'grabbing'
+    }
+    const onMove = (e: PointerEvent) => {
+      if (!dragging) return
+      setTranslate(t => ({ x: t.x + e.clientX - lx, y: t.y + e.clientY - ly }))
+      lx = e.clientX; ly = e.clientY
+    }
+    const onUp = (e: PointerEvent) => {
+      dragging = false; el.releasePointerCapture(e.pointerId); el.style.cursor = 'grab'
+    }
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      setScale(s => Math.min(2, Math.max(0.3, s - e.deltaY * 0.001)))
+    }
+    el.addEventListener('pointerdown', onDown)
+    el.addEventListener('pointermove', onMove)
+    el.addEventListener('pointerup', onUp)
+    el.addEventListener('pointercancel', onUp)
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => {
+      el.removeEventListener('pointerdown', onDown)
+      el.removeEventListener('pointermove', onMove)
+      el.removeEventListener('pointerup', onUp)
+      el.removeEventListener('pointercancel', onUp)
+      el.removeEventListener('wheel', onWheel)
+    }
+  }, [])
 
   const W = PAD_X * 2 + participants.length * COL_W
   const H = HEAD_H + messages.length * ROW_H + ROW_H
@@ -88,8 +126,10 @@ export function SequenceEditor({ participants, messages, onUpdate }: Props) {
   }
 
   return (
-    <div className="w-full h-full flex flex-col bg-white overflow-auto">
-      <svg width={W} height={H} style={{ minWidth: W, flexShrink: 0 }}>
+    <div className="w-full h-full flex flex-col bg-white">
+      <div ref={viewportRef} style={{ flex: 1, overflow: 'hidden', cursor: 'grab', userSelect: 'none', touchAction: 'none' }}>
+        <div style={{ transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale})`, transformOrigin: '0 0', display: 'inline-block' }}>
+        <svg width={W} height={H} style={{ minWidth: W, flexShrink: 0 }}>
         {/* lifelines */}
         {participants.map((_, i) => (
           <line key={i} x1={colX(i)} y1={HEAD_H} x2={colX(i)} y2={H - ROW_H / 2}
@@ -112,7 +152,7 @@ export function SequenceEditor({ participants, messages, onUpdate }: Props) {
                     autoFocus />
                 </foreignObject>
               ) : (
-                <text x={cx} y={HEAD_H - 12} textAnchor="middle" fontSize={12} fill="#3730a3"
+                <text x={cx} y={4 + BOX_H / 2} textAnchor="middle" dominantBaseline="middle" fontSize={12} fill="#3730a3"
                   style={{ cursor: 'pointer' }}
                   onDoubleClick={() => { setEditingP(i); setPDraft(p.label) }}>
                   {p.label}
@@ -194,6 +234,8 @@ export function SequenceEditor({ participants, messages, onUpdate }: Props) {
           )
         })}
       </svg>
+        </div>
+      </div>
 
       {/* toolbar */}
       <div className="flex gap-2 p-3 border-t border-gray-100 flex-wrap items-center">

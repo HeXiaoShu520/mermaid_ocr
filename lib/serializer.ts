@@ -14,6 +14,12 @@ import type {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function sanitizeId(id: string): string {
+  // If id contains non-ASCII chars, generate a stable short id
+  if (/[^\x00-\x7F]/.test(id)) {
+    let h = 0
+    for (let i = 0; i < id.length; i++) h = (Math.imul(31, h) + id.charCodeAt(i)) | 0
+    return 'sg_' + Math.abs(h).toString(36)
+  }
   return id.replace(/[^a-zA-Z0-9_]/g, '_')
 }
 

@@ -1,6 +1,6 @@
 import { type Edge, type Node, MarkerType } from '@xyflow/react'
 import type { FlowEdgeData, FlowNodeData } from './flowStore'
-import { applyDagreLayout } from './layout'
+import { applyDagreLayout, updateEdgeHandles } from './layout'
 
 export interface StateParseResult {
   nodes: Node<FlowNodeData>[]
@@ -32,7 +32,7 @@ export function parseMermaidStateDiagram(syntax: string): StateParseResult {
       if (line === '}') continue
 
       // state "label" as ID
-      const stateAlias = line.match(/^state\s+"([^"]+)"\s+as\s+(\w+)/)
+      const stateAlias = line.match(/^state\s+"([^"]+)"\s+as\s+(\S+)/)
       if (stateAlias) {
         const [, label, id] = stateAlias
         ensureNode(id, label, 'rounded')
@@ -40,7 +40,7 @@ export function parseMermaidStateDiagram(syntax: string): StateParseResult {
       }
 
       // state ID { ... } composite state (just register the container)
-      const stateComposite = line.match(/^state\s+(\w+)\s*\{/)
+      const stateComposite = line.match(/^state\s+(\S+)\s*\{/)
       if (stateComposite) {
         ensureNode(stateComposite[1], stateComposite[1], 'subroutine')
         continue
@@ -51,14 +51,11 @@ export function parseMermaidStateDiagram(syntax: string): StateParseResult {
       if (line === 'end note') continue
 
       // [*] --> ID : label  or  ID --> [*]  or  ID --> ID2 : label
-      const transition = line.match(/^(\[?\*?\]?[\w\[\]*]+)\s*-->\s*(\[?\*?\]?[\w\[\]*]+)(?:\s*:\s*(.+))?$/)
+      const transition = line.match(/^(\[?\*\]?|[^\s\-]+)\s*-->\s*(\[?\*\]?|[^\s:]+)(?:\s*:\s*(.+))?$/)
       if (transition) {
         const [, rawSrc, rawTgt, label] = transition
 
-        const resolveId = (raw: string) => {
-          if (raw === '[*]') return '__start__'
-          return raw
-        }
+        const resolveId = (raw: string) => raw === '[*]' ? '__start__' : raw
         const src = resolveId(rawSrc)
         const tgt = resolveId(rawTgt)
 
@@ -81,8 +78,8 @@ export function parseMermaidStateDiagram(syntax: string): StateParseResult {
       }
 
       // bare state ID (standalone declaration)
-      const bareState = line.match(/^(\w+)\s*$/)
-      if (bareState) {
+      const bareState = line.match(/^(\S+)\s*$/)
+      if (bareState && !bareState[1].includes('-->')) {
         ensureNode(bareState[1], bareState[1], 'rounded')
       }
     }
@@ -90,7 +87,8 @@ export function parseMermaidStateDiagram(syntax: string): StateParseResult {
     if (nodesMap.size === 0) return { ...empty, error: '未找到状态定义' }
 
     const nodes = applyDagreLayout([...nodesMap.values()], edges, 'TD')
-    return { nodes, edges, error: null }
+    const updatedEdges = updateEdgeHandles(nodes, edges, 'TD')
+    return { nodes, edges: updatedEdges, error: null }
   } catch (err) {
     return { ...empty, error: err instanceof Error ? err.message : '解析错误' }
   }

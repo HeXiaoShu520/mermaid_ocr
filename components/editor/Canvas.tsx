@@ -220,21 +220,6 @@ function CanvasInner({ onOpenPalette }: CanvasInnerProps) {
       const w = draggedNode.measured?.width ?? 150
       const h = draggedNode.measured?.height ?? 60
 
-      // Node already in a group — check if it was dragged outside
-      if (draggedNode.parentId) {
-        const parent = allNodes.find((n) => n.id === draggedNode.parentId)
-        if (parent) {
-          const sgW = typeof parent.style?.width === 'number' ? parent.style.width : 320
-          const sgH = typeof parent.style?.height === 'number' ? parent.style.height : 220
-          const cx = draggedNode.position.x + w / 2
-          const cy = draggedNode.position.y + h / 2
-          if (cx < 0 || cx > sgW || cy < 0 || cy > sgH) {
-            assignToSubgraph([draggedNode.id], null)
-          }
-        }
-        return
-      }
-
       // Free node — check if dropped inside a group
       const subgraphs = allNodes.filter((n) => n.data.isSubgraph)
       if (subgraphs.length === 0) return
@@ -295,6 +280,10 @@ function CanvasInner({ onOpenPalette }: CanvasInnerProps) {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeDragStop={handleNodeDragStop}
+        onNodeDragStart={(_e, draggedNode) => {
+          if (!draggedNode.parentId) return
+          assignToSubgraph([draggedNode.id], null)
+        }}
         fitView
         deleteKeyCode={['Backspace', 'Delete']}
         panOnDrag={drawingShape ? false : panMode ? [0, 1, 2] : true}
@@ -306,6 +295,26 @@ function CanvasInner({ onOpenPalette }: CanvasInnerProps) {
         style={{ background: 'var(--neu-bg)' }}
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={2} color={showGrid ? "#d1d9e6" : "transparent"} />
+
+        {/* Custom UML arrow markers */}
+        <svg style={{ position: 'absolute', width: 0, height: 0 }}>
+          <defs>
+            {/* Inheritance: hollow triangle */}
+            <marker id="uml-inheritance" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse">
+              <path d="M 1 1 L 11 6 L 1 11 Z" fill="white" stroke="#9ca3af" strokeWidth="1.5" />
+            </marker>
+
+            {/* Composition: filled diamond */}
+            <marker id="uml-composition" markerWidth="14" markerHeight="14" refX="13" refY="7" orient="auto" markerUnits="userSpaceOnUse">
+              <path d="M 1 7 L 7 1 L 13 7 L 7 13 Z" fill="#9ca3af" stroke="#9ca3af" strokeWidth="1" />
+            </marker>
+
+            {/* Aggregation: hollow diamond */}
+            <marker id="uml-aggregation" markerWidth="14" markerHeight="14" refX="13" refY="7" orient="auto" markerUnits="userSpaceOnUse">
+              <path d="M 1 7 L 7 1 L 13 7 L 7 13 Z" fill="white" stroke="#9ca3af" strokeWidth="1.5" />
+            </marker>
+          </defs>
+        </svg>
       </ReactFlow>
 
       {relativePreview && relativePreview.width > 4 && relativePreview.height > 4 && (

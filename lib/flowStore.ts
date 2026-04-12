@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { applyDagreLayout, updateEdgeHandles } from "./layout";
 import {
   addEdge,
   applyEdgeChanges,
@@ -40,6 +41,7 @@ export type NodeShape =
   | "notch-rect"
   | "lin-rect"
   | "div-rect"
+  | "class-rect"
   | "st-rect"
   | "tag-rect"
   | "sl-rect"
@@ -102,6 +104,7 @@ export interface FlowEdgeData extends Record<string, unknown> {
   edgeStyle?: EdgeStyle;
   arrowType?: ArrowType;
   strokeColor?: string;
+  useCenterConnection?: boolean; // For class/state/sequence diagrams
 }
 
 // ─── History snapshot ─────────────────────────────────────────────────────────
@@ -402,27 +405,31 @@ export const useFlowStore = create<FlowState>((set, get) => {
       set({ nodes: stampedNodes, edges: stampedEdges });
     }),
 
-    importDiagram: withHistory((nodes, edges, settings) => {
+    importDiagram: (nodes, edges, settings) => {
       const stampedNodes = nodes.map((n) => ({ ...n, type: "flowNode" }));
       const stampedEdges = edges.map((e) => ({
         ...e,
         type: "flowEdge",
       })) as Edge<FlowEdgeData>[];
-      // Advance nodeCounter to avoid ID collisions with imported nodes
       const maxId = stampedNodes.reduce((max, n) => {
         const m = n.id.match(/(\d+)$/)
         return m ? Math.max(max, parseInt(m[1], 10)) : max
       }, 0)
       if (maxId >= nodeCounter) nodeCounter = maxId + 1
+      const subgraphs = stampedNodes.filter((n) => n.data?.isSubgraph)
+      const children = stampedNodes.filter((n) => n.parentId)
+      const free = stampedNodes.filter((n) => !n.data?.isSubgraph && !n.parentId)
       set({
-        nodes: stampedNodes,
+        nodes: [...subgraphs, ...free, ...children],
         edges: stampedEdges,
         direction: settings.direction,
         theme: settings.theme,
         look: settings.look,
         curveStyle: settings.curveStyle,
+        past: [],
+        future: [],
       });
-    }),
+    },
 
     addSubgraph: withHistory((title = "分组") => {
       const id = `sg_${nodeCounter++}`;
@@ -440,28 +447,36 @@ export const useFlowStore = create<FlowState>((set, get) => {
 
     assignToSubgraph: withHistory((nodeIds, subgraphId) => {
       const { nodes } = get();
-      set({
-        nodes: nodes.map((n) => {
-          if (!nodeIds.includes(n.id)) return n;
-          if (subgraphId === null) {
-            // Remove from subgraph: restore absolute position
-            const parent = n.parentId ? nodes.find((p) => p.id === n.parentId) : null;
-            const absPos = parent
-              ? { x: parent.position.x + n.position.x, y: parent.position.y + n.position.y }
-              : n.position;
-            return { ...n, parentId: undefined, extent: undefined, position: absPos };
-          }
-          // Assign to subgraph: convert to relative position
-          const parent = nodes.find((p) => p.id === subgraphId);
-          const relPos = parent
-            ? { x: n.position.x - parent.position.x, y: n.position.y - parent.position.y }
+      const updated = nodes.map((n) => {
+        if (!nodeIds.includes(n.id)) return n;
+        if (subgraphId === null) {
+          // Remove from subgraph: restore absolute position
+          const parent = n.parentId ? nodes.find((p) => p.id === n.parentId) : null;
+          const absPos = parent
+            ? { x: parent.position.x + n.position.x, y: parent.position.y + n.position.y }
             : n.position;
-          return { ...n, parentId: subgraphId, position: relPos };
-        }),
+          return { ...n, parentId: undefined, extent: undefined, position: absPos };
+        }
+        // Assign to subgraph: convert to relative position
+        const parent = nodes.find((p) => p.id === subgraphId);
+        const relPos = parent
+          ? { x: n.position.x - parent.position.x, y: n.position.y - parent.position.y }
+          : n.position;
+        return { ...n, parentId: subgraphId, extent: [[-5000, -5000], [5000, 5000]] as [[number, number], [number, number]], position: relPos };
       });
+      // React Flow requires parent nodes to appear before their children
+      const subgraphs = updated.filter((n) => n.data.isSubgraph);
+      const children = updated.filter((n) => n.parentId);
+      const free = updated.filter((n) => !n.data.isSubgraph && !n.parentId);
+      set({ nodes: [...subgraphs, ...free, ...children] });
     }),
 
-    setDirection: (direction) => set({ direction }),
+    setDirection: (direction) => {
+      const { nodes, edges } = get()
+      const relaidNodes = applyDagreLayout(nodes, edges, direction)
+      const updatedEdges = updateEdgeHandles(relaidNodes, edges, direction)
+      set({ direction, nodes: relaidNodes, edges: updatedEdges })
+    },
     setTheme: (theme) => set({ theme }),
     setLook: (look) => set({ look }),
     setCurveStyle: (curveStyle) => set({ curveStyle }),

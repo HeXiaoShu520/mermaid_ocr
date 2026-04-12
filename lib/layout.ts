@@ -1,6 +1,15 @@
 import dagre from '@dagrejs/dagre'
-import type { Edge, Node } from '@xyflow/react'
+import { Position, type Edge, type Node } from '@xyflow/react'
 import type { Direction, FlowNodeData } from './flowStore'
+
+function getPositions(direction: Direction): { source: Position; target: Position } {
+  switch (direction) {
+    case 'LR': return { source: Position.Right, target: Position.Left }
+    case 'RL': return { source: Position.Left, target: Position.Right }
+    case 'BT': return { source: Position.Top, target: Position.Bottom }
+    default:   return { source: Position.Bottom, target: Position.Top }
+  }
+}
 
 const NODE_WIDTH = 150
 const NODE_HEIGHT = 60
@@ -13,6 +22,34 @@ const RANKDIR: Record<Direction, string> = {
   RL: 'RL',
 }
 
+// Calculate which handle to use based on layout direction
+function calculateHandles(
+  direction: Direction
+): { sourceHandle: string; targetHandle: string } {
+  switch (direction) {
+    case 'TD':
+      return {
+        sourceHandle: `${Position.Bottom}-s`,
+        targetHandle: `${Position.Top}-t`,
+      }
+    case 'BT':
+      return {
+        sourceHandle: `${Position.Top}-s`,
+        targetHandle: `${Position.Bottom}-t`,
+      }
+    case 'LR':
+      return {
+        sourceHandle: `${Position.Right}-s`,
+        targetHandle: `${Position.Left}-t`,
+      }
+    case 'RL':
+      return {
+        sourceHandle: `${Position.Left}-s`,
+        targetHandle: `${Position.Right}-t`,
+      }
+  }
+}
+
 export function applyDagreLayout(
   nodes: Node<FlowNodeData>[],
   edges: Edge[],
@@ -22,10 +59,16 @@ export function applyDagreLayout(
 
   const g = new dagre.graphlib.Graph({ compound: true })
   g.setDefaultEdgeLabel(() => ({}))
-  g.setGraph({ rankdir: RANKDIR[direction], nodesep: 60, ranksep: 80 })
+  g.setGraph({
+    rankdir: RANKDIR[direction],
+    nodesep: 60,
+    ranksep: 80,
+    ranker: 'longest-path'  // Use longest-path ranker to better preserve order
+  })
 
-  // Add all nodes
-  for (const node of nodes) {
+  // Add all nodes with order index to preserve declaration order
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i]
     if (node.data?.isSubgraph) {
       // Let dagre auto-size subgraphs from children; provide padding
       g.setNode(node.id, {
@@ -35,8 +78,11 @@ export function applyDagreLayout(
         paddingY: SUBGRAPH_PADDING,
       })
     } else {
-      const w = typeof node.style?.width === 'number' ? node.style.width : NODE_WIDTH
-      const h = typeof node.style?.height === 'number' ? node.style.height : NODE_HEIGHT
+      const isCircle = node.data?.shape === 'circle' || node.data?.shape === 'double-circle'
+      const defaultW = isCircle ? 80 : NODE_WIDTH
+      const defaultH = isCircle ? 80 : NODE_HEIGHT
+      const w = typeof node.style?.width === 'number' ? node.style.width : defaultW
+      const h = typeof node.style?.height === 'number' ? node.style.height : defaultH
       g.setNode(node.id, { width: w, height: h })
     }
   }
@@ -49,11 +95,15 @@ export function applyDagreLayout(
   }
 
   // Add ALL edges — dagre handles cross-boundary edges in compound mode
-  for (const edge of edges) {
-    g.setEdge(edge.source, edge.target)
+  // Add edges in order to help dagre maintain node ordering
+  for (let i = 0; i < edges.length; i++) {
+    const edge = edges[i]
+    g.setEdge(edge.source, edge.target, { weight: edges.length - i })
   }
 
   dagre.layout(g)
+
+  const { source: sourcePosition, target: targetPosition } = getPositions(direction)
 
   return nodes.map((node) => {
     const layout = g.node(node.id)
@@ -74,8 +124,9 @@ export function applyDagreLayout(
       }
     }
 
+    const posProps = { sourcePosition, targetPosition }
+
     if (node.parentId) {
-      // Convert dagre absolute coords to parent-relative for React Flow
       const parentLayout = g.node(node.parentId)
       if (!parentLayout) return node
       const w = typeof node.style?.width === 'number' ? node.style.width : NODE_WIDTH
@@ -84,6 +135,7 @@ export function applyDagreLayout(
       const parentTopLeftY = parentLayout.y - parentLayout.height / 2
       return {
         ...node,
+        ...posProps,
         position: {
           x: layout.x - w / 2 - parentTopLeftX,
           y: layout.y - h / 2 - parentTopLeftY,
@@ -91,15 +143,30 @@ export function applyDagreLayout(
       }
     }
 
-    // Top-level non-subgraph node
     const w = typeof node.style?.width === 'number' ? node.style.width : NODE_WIDTH
     const h = typeof node.style?.height === 'number' ? node.style.height : NODE_HEIGHT
     return {
       ...node,
+      ...posProps,
       position: {
         x: layout.x - w / 2,
         y: layout.y - h / 2,
       },
     }
   })
+}
+
+// Update edges with correct handle IDs based on layout direction
+export function updateEdgeHandles(
+  nodes: Node<FlowNodeData>[],
+  edges: Edge[],
+  direction: Direction = 'TD'
+): Edge[] {
+  const { sourceHandle, targetHandle } = calculateHandles(direction)
+
+  return edges.map(edge => ({
+    ...edge,
+    sourceHandle,
+    targetHandle,
+  }))
 }

@@ -186,7 +186,7 @@ function ShapesSection() {
           }}>{c.label}</button>
         ))}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4 }}>
         {category.shapes.map(({ shape, label }) => (
           <button key={shape + label} draggable onDragStart={(e) => handleDragStart(e, shape)}
             onClick={() => setDrawingShape(shape)} title={label}
@@ -236,9 +236,12 @@ function GlobalSettingsSection() {
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div>
         <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 4 }}>主题</div>
-        <select value={theme} onChange={(e) => setTheme(e.target.value as Theme)} style={selectStyle}>
-          {THEMES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-        </select>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+          {THEMES.map((t) => (
+            <FlatButton key={t.value} onClick={() => setTheme(t.value)} active={theme === t.value}
+              style={{ fontSize: 10, padding: "4px 8px" }}>{t.label}</FlatButton>
+          ))}
+        </div>
       </div>
       <div>
         <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 4 }}>手绘风格</div>

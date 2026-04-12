@@ -72,3 +72,47 @@ export function serializeStateDiagram(
 
   return lines.join('\n')
 }
+
+// ─── Sequence diagram serializer ──────────────────────────────────────────────
+
+export function serializeSequenceDiagram(
+  nodes: Node<FlowNodeData>[],
+  edges: Edge<FlowEdgeData>[]
+): string {
+  const lines: string[] = ['sequenceDiagram']
+
+  // Output participant declarations
+  for (const node of nodes) {
+    const id = sanitizeId(node.id)
+    const label = node.data.label
+    if (label !== id) {
+      lines.push(`  participant ${id} as ${label}`)
+    } else {
+      lines.push(`  participant ${id}`)
+    }
+  }
+
+  // Output messages (edges)
+  for (const edge of edges) {
+    const src = sanitizeId(edge.source)
+    const tgt = sanitizeId(edge.target)
+    const arrowType = edge.data?.arrowType ?? 'arrow'
+    const edgeStyle = edge.data?.edgeStyle ?? 'solid'
+
+    let connector = '->>'
+    if (edgeStyle === 'solid' && arrowType === 'arrow') {
+      connector = '->>'
+    } else if (edgeStyle === 'dashed' && arrowType === 'arrow') {
+      connector = '-->>'
+    } else if (edgeStyle === 'solid' && arrowType === 'none') {
+      connector = '-)'
+    } else if (edgeStyle === 'dashed' && arrowType === 'none') {
+      connector = '--)'
+    }
+
+    const label = typeof edge.label === 'string' ? edge.label : ''
+    lines.push(`  ${src} ${connector} ${tgt}: ${label}`)
+  }
+
+  return lines.join('\n')
+}

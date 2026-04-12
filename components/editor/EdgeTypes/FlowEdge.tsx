@@ -1,6 +1,6 @@
 'use client'
 
-import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, type EdgeProps } from '@xyflow/react'
+import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, type EdgeProps, useStore } from '@xyflow/react'
 import { useCallback, useState } from 'react'
 import { useFlowStore, type CurveStyle, type FlowEdgeData } from '@/lib/flowStore'
 
@@ -35,6 +35,75 @@ function getPathForCurve(
   return [result[0], result[1], result[2]]
 }
 
+// Calculate path from node center to nearest handle (for all diagrams)
+function getCenterToHandlePath(
+  sourceX: number,
+  sourceY: number,
+  targetX: number,
+  targetY: number,
+  sourceNode: any,
+  targetNode: any
+): [string, number, number] {
+  // Get node dimensions
+  const sourceWidth = sourceNode?.measured?.width ?? sourceNode?.width ?? 100
+  const sourceHeight = sourceNode?.measured?.height ?? sourceNode?.height ?? 40
+  const targetWidth = targetNode?.measured?.width ?? targetNode?.width ?? 100
+  const targetHeight = targetNode?.measured?.height ?? targetNode?.height ?? 40
+
+  // Calculate source center
+  const sourceCenterX = sourceX + sourceWidth / 2
+  const sourceCenterY = sourceY + sourceHeight / 2
+
+  // Calculate target handle positions (top, bottom, left, right)
+  const targetCenterX = targetX + targetWidth / 2
+  const targetCenterY = targetY + targetHeight / 2
+
+  const targetHandles = [
+    { x: targetCenterX, y: targetY, name: 'top' },                    // top
+    { x: targetCenterX, y: targetY + targetHeight, name: 'bottom' },  // bottom
+    { x: targetX, y: targetCenterY, name: 'left' },                   // left
+    { x: targetX + targetWidth, y: targetCenterY, name: 'right' },    // right
+  ]
+
+  // Find nearest handle to source center
+  let nearestHandle = targetHandles[0]
+  let minDistance = Infinity
+
+  for (const handle of targetHandles) {
+    const dx = handle.x - sourceCenterX
+    const dy = handle.y - sourceCenterY
+    const distance = Math.sqrt(dx * dx + dy * dy)
+    if (distance < minDistance) {
+      minDistance = distance
+      nearestHandle = handle
+    }
+  }
+
+  // Shorten the line slightly to account for arrow marker size (about 10px)
+  const dx = nearestHandle.x - sourceCenterX
+  const dy = nearestHandle.y - sourceCenterY
+  const length = Math.sqrt(dx * dx + dy * dy)
+  const arrowOffset = 10 // pixels to shorten for arrow
+
+  let endX = nearestHandle.x
+  let endY = nearestHandle.y
+
+  if (length > arrowOffset) {
+    const ratio = (length - arrowOffset) / length
+    endX = sourceCenterX + dx * ratio
+    endY = sourceCenterY + dy * ratio
+  }
+
+  // Create straight path from source center to adjusted end point
+  const path = `M ${sourceCenterX},${sourceCenterY} L ${endX},${endY}`
+
+  // Label position at midpoint
+  const labelX = (sourceCenterX + endX) / 2
+  const labelY = (sourceCenterY + endY) / 2
+
+  return [path, labelX, labelY]
+}
+
 export function FlowEdge({
   id,
   sourceX,
@@ -48,8 +117,12 @@ export function FlowEdge({
   markerStart,
   selected,
   data,
+  source,
+  target,
 }: EdgeProps) {
   const curveStyle = useFlowStore((s) => s.curveStyle)
+
+  // Normal handle-to-handle mode for all diagrams
   const [edgePath, labelX, labelY] = getPathForCurve(curveStyle, {
     sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition,
   })
