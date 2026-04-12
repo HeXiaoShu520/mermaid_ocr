@@ -97,6 +97,18 @@ store/
 | 饼图 (pie) | ✅ | ✅ | ❌ |
 | 其他 Mermaid 类型 | ✅ | ✅ | ❌ |
 
+## 致谢
+
+本项目的可视化编辑器部分基于 [saketkattu/mermaid-visual-editor](https://github.com/saketkattu/mermaid-visual-editor) 开发，在此基础上进行了扩展和改进：
+
+- 新增 50+ 形状支持（原项目仅支持基础形状）
+- 新增子图（subgraph）识别与可视化编辑
+- 新增拖拽绘制、边标签编辑、颜色自定义等功能
+- 集成 AI 图片转 Mermaid 功能
+- 优化布局与交互体验
+
+感谢原作者的开源贡献。
+
 ## License
 
 [MIT](LICENSE)
