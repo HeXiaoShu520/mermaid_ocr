@@ -1,3 +1,16 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Visual editor neumorphism styles */
+:root {
+  --neu-bg: #E0E5EC;
+  --neu-shadow-raised: 6px 6px 14px rgba(163, 177, 198, 0.6), -6px -6px 14px rgba(255, 255, 255, 0.8);
+  --neu-shadow-inset: inset 4px 4px 10px rgba(163, 177, 198, 0.6), inset -4px -4px 10px rgba(255, 255, 255, 0.8);
+  --neu-shadow-concave: inset 6px 6px 12px rgba(163, 177, 198, 0.5), inset -6px -6px 12px rgba(255, 255, 255, 0.9);
+  --neu-shadow-soft: 4px 4px 10px rgba(163, 177, 198, 0.5), -4px -4px 10px rgba(255, 255, 255, 0.7);
+}
+.neu-raised { box-shadow: var(--neu-shadow-raised); }
+.neu-inset  { box-shadow: var(--neu-shadow-inset); }
+.neu-concave{ box-shadow: var(--neu-shadow-concave); }
+.neu-soft   { box-shadow: var(--neu-shadow-soft); }
