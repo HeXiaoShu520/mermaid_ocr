@@ -95,8 +95,8 @@ export function ShapeIcon({ shape, stroke = '#6b7280', fill = 'white' }: { shape
       return <svg viewBox="0 0 12 20" className="w-3 h-5"><path d="M2,2 C5,2 5,8 7,10 C5,12 5,18 2,18" fill="none" stroke={stroke} strokeWidth={sw} /></svg>
     case 'braces':
       return <svg viewBox="0 0 20 20" className="w-5 h-5"><path d="M6,2 C3,2 3,8 1,10 C3,12 3,18 6,18" fill="none" stroke={stroke} strokeWidth={sw} /><path d="M14,2 C17,2 17,8 19,10 C17,12 17,18 14,18" fill="none" stroke={stroke} strokeWidth={sw} /></svg>
-    case 'text':
-      return <svg viewBox="0 0 20 16" className="w-5 h-4"><text x={3} y={12} fontSize={10} fill={stroke} fontFamily="sans-serif">T</text></svg>
+    case 'comment':
+      return <svg viewBox="0 0 20 16" className="w-5 h-4"><text x={10} y={12} fontSize={14} fill={stroke} fontFamily="sans-serif" textAnchor="middle" fontWeight="500">T</text></svg>
     case 'odd':
       return <svg viewBox="0 0 24 16" className="w-6 h-4"><polygon points="4,2 20,2 23,8 20,14 4,14 1,8" fill={fill} stroke={stroke} strokeWidth={sw} /></svg>
     case 'bang':
@@ -113,7 +113,7 @@ export const SHAPE_CATEGORIES: { id: ShapeCategory; label: string; shapes: { sha
   {
     id: "basic", label: "基础",
     shapes: [
-      { shape: "text", label: "文本" },
+      { shape: "comment", label: "文本" },
       { shape: "rectangle", label: "矩形" },
       { shape: "rounded", label: "圆角矩形" },
       { shape: "stadium", label: "体育场形" },
@@ -124,15 +124,10 @@ export const SHAPE_CATEGORIES: { id: ShapeCategory; label: string; shapes: { sha
       { shape: "h-cyl", label: "水平圆柱" },
       { shape: "lin-cyl", label: "带线圆柱" },
       { shape: "circle", label: "圆形" },
-      { shape: "double-circle", label: "双圆" },
-      { shape: "small-circle", label: "小圆" },
-      { shape: "framed-circle", label: "框圆" },
-      { shape: "filled-circle", label: "实心圆" },
       { shape: "parallelogram", label: "平行四边形" },
       { shape: "parallelogram-alt", label: "平行四边形(反)" },
       { shape: "trapezoid", label: "梯形" },
       { shape: "trapezoid-alt", label: "梯形(反)" },
-      { shape: "lin-rect", label: "带线矩形" },
       { shape: "flag", label: "旗帜" },
     ],
   },
@@ -140,11 +135,7 @@ export const SHAPE_CATEGORIES: { id: ShapeCategory; label: string; shapes: { sha
     id: "process", label: "流程",
     shapes: [
       { shape: "rectangle", label: "矩形" },
-      { shape: "lin-rect", label: "带线矩形" },
-      { shape: "div-rect", label: "分割矩形" },
-      { shape: "st-rect", label: "堆叠矩形" },
       { shape: "tag-rect", label: "标记矩形" },
-      { shape: "notch-rect", label: "缺口矩形" },
       { shape: "triangle", label: "三角形" },
       { shape: "sl-rect", label: "斜矩形" },
       { shape: "parallelogram", label: "平行四边形" },
@@ -153,20 +144,15 @@ export const SHAPE_CATEGORIES: { id: ShapeCategory; label: string; shapes: { sha
       { shape: "trapezoid", label: "梯形(下)" },
       { shape: "hourglass", label: "沙漏" },
       { shape: "hexagon", label: "六边形" },
-      { shape: "asymmetric", label: "不对称" },
       { shape: "stadium", label: "体育场形" },
       { shape: "rounded", label: "圆角矩形" },
-      { shape: "small-circle", label: "小圆" },
-      { shape: "framed-circle", label: "框圆" },
       { shape: "fork", label: "分叉/合并" },
-      { shape: "filled-circle", label: "实心圆" },
       { shape: "diamond", label: "菱形" },
       { shape: "bow-rect", label: "蝴蝶结矩形" },
       { shape: "notch-pent", label: "缺口五边形" },
       { shape: "brace", label: "左花括号" },
       { shape: "brace-r", label: "右花括号" },
       { shape: "braces", label: "双花括号" },
-      { shape: "crossed-circle", label: "叉圆" },
       { shape: "delay", label: "延迟" },
     ],
   },

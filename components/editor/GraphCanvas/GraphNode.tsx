@@ -889,7 +889,7 @@ export default function GraphNode({
                   border: '2px solid white',
                   cursor: 'crosshair',
                   pointerEvents: 'auto',
-                  zIndex: 10,
+                  zIndex: 12,
                 }}
                 onMouseDown={(e) => handleHandleMouseDown(e, dir)}
               />

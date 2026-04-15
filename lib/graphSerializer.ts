@@ -38,86 +38,47 @@ function serializeNodeShape(node: NodeState): string {
     case 'trapezoid-alt':
       return `${node.id}[\\${label}/]`
 
-    // 扩展形状（使用最接近的 Mermaid 语法或注释标记）
+    // 扩展形状：使用 Mermaid v11 @{ shape } 语法
     case 'triangle':
-      return `${node.id}[${label}] %% triangle`
-    case 'triangle-down':
-      return `${node.id}[${label}] %% triangle-down`
-    case 'triangle-left':
-      return `${node.id}[${label}] %% triangle-left`
-    case 'triangle-right':
-      return `${node.id}[${label}] %% triangle-right`
-    case 'pentagon':
-      return `${node.id}[${label}] %% pentagon`
-    case 'octagon':
-      return `${node.id}[${label}] %% octagon`
-    case 'star':
-      return `${node.id}[${label}] %% star`
-    case 'cross':
-      return `${node.id}[${label}] %% cross`
-    case 'plus':
-      return `${node.id}[${label}] %% plus`
-    case 'arrow-right':
-      return `${node.id}[${label}] %% arrow-right`
-    case 'arrow-left':
-      return `${node.id}[${label}] %% arrow-left`
-    case 'arrow-up':
-      return `${node.id}[${label}] %% arrow-up`
-    case 'arrow-down':
-      return `${node.id}[${label}] %% arrow-down`
-    case 'h-cyl':
-      return `${node.id}[${label}] %% h-cyl`
-    case 'lin-cyl':
-      return `${node.id}[${label}] %% lin-cyl`
-    case 'tag-rect':
-      return `${node.id}[${label}] %% tag-rect`
-    case 'sl-rect':
-      return `${node.id}[${label}] %% sl-rect`
-    case 'bow-rect':
-      return `${node.id}[${label}] %% bow-rect`
-    case 'notch-pent':
-      return `${node.id}[${label}] %% notch-pent`
-    case 'curv-trap':
-      return `${node.id}[${label}] %% curv-trap`
-    case 'delay':
-      return `${node.id}[${label}] %% delay`
-    case 'bolt':
-      return `${node.id}[${label}] %% bolt`
-    case 'doc':
-      return `${node.id}[${label}] %% doc`
-    case 'lin-doc':
-      return `${node.id}[${label}] %% lin-doc`
-    case 'st-doc':
-      return `${node.id}[${label}] %% st-doc`
-    case 'tag-doc':
-      return `${node.id}[${label}] %% tag-doc`
-    case 'fork':
-      return `${node.id}[${label}] %% fork`
-    case 'brace':
-      return `${node.id}[${label}] %% brace`
-    case 'brace-r':
-      return `${node.id}[${label}] %% brace-r`
-    case 'braces':
-      return `${node.id}[${label}] %% braces`
-    case 'win-pane':
-      return `${node.id}[${label}] %% win-pane`
-    case 'ellipse':
-      return `${node.id}[${label}] %% ellipse`
-    case 'cloud':
-      return `${node.id}[${label}] %% cloud`
-    case 'comment':
-      return `${node.id}[${label}] %% comment`
+      return `${node.id}@{ shape: tri, label: "${label}" }`
     case 'flag':
-      return `${node.id}[${label}] %% flag`
+      return `${node.id}@{ shape: flag, label: "${label}" }`
     case 'hourglass':
-      return `${node.id}[${label}] %% hourglass`
-    case 'heart':
-      return `${node.id}[${label}] %% heart`
-    case 'lightning':
-      return `${node.id}[${label}] %% lightning`
-    case 'moon':
-      return `${node.id}[${label}] %% moon`
+      return `${node.id}@{ shape: hourglass, label: "${label}" }`
+    case 'bolt':
+      return `${node.id}@{ shape: bolt, label: "${label}" }`
+    case 'doc':
+      return `${node.id}@{ shape: doc, label: "${label}" }`
+    case 'delay':
+      return `${node.id}@{ shape: delay, label: "${label}" }`
+    case 'fork':
+      return `${node.id}@{ shape: fork, label: "${label}" }`
+    case 'cloud':
+      return `${node.id}@{ shape: cloud, label: "${label}" }`
+    case 'tag-rect':
+      return `${node.id}@{ shape: tag-rect, label: "${label}" }`
+    case 'win-pane':
+      return `${node.id}@{ shape: win-pane, label: "${label}" }`
+    case 'notch-pent':
+      return `${node.id}@{ shape: notch-pent, label: "${label}" }`
+    case 'curv-trap':
+      return `${node.id}@{ shape: curv-trap, label: "${label}" }`
+    case 'lin-cyl':
+      return `${node.id}@{ shape: lin-cyl, label: "${label}" }`
+    case 'h-cyl':
+      return `${node.id}@{ shape: h-cyl, label: "${label}" }`
+    case 'st-doc':
+      return `${node.id}@{ shape: st-doc, label: "${label}" }`
+    case 'tag-doc':
+      return `${node.id}@{ shape: tag-doc, label: "${label}" }`
+    case 'bow-rect':
+      return `${node.id}@{ shape: bow-rect, label: "${label}" }`
+    case 'sl-rect':
+      return `${node.id}@{ shape: sl-rect, label: "${label}" }`
+    case 'lin-doc':
+      return `${node.id}@{ shape: lin-doc, label: "${label}" }`
 
+    // 无对应语法，降级为矩形
     default:
       return `${node.id}[${label}]`
   }
@@ -157,13 +118,11 @@ export function serializeToMermaid(
     }
   })
 
-  // 输出子图
+  // 输出子图（需要子图标签，从 subgraphs 参数获取）
   subgraphMap.forEach((subgraphNodes, subgraphId) => {
     lines.push(`  subgraph ${subgraphId}`)
     subgraphNodes.forEach(node => {
-      if (node.label !== node.id || node.shape) {
-        lines.push(`    ${serializeNodeShape(node)}`)
-      }
+      lines.push(`    ${serializeNodeShape(node)}`)
     })
     lines.push(`  end`)
   })

@@ -10,7 +10,10 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.20.9",
     "@dagrejs/dagre": "^3.0.0",
+    "@types/dagre": "^0.7.54",
     "@xyflow/react": "^12.10.2",
+    "dagre": "^0.8.5",
+    "lucide-react": "^1.8.0",
     "mermaid": "^11.14.0",
     "next": "^14.2.0",
     "pako": "^2.1.0",

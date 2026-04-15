@@ -1,7 +1,6 @@
 'use client'
 
-import { useShallow } from 'zustand/react/shallow'
-import { useFlowStore, type EdgeStyle, type ArrowType, type FlowEdgeData } from '@/lib/flowStore'
+import { useGraphEditorStore } from '@/lib/graphEditorStore'
 
 const PANEL_BORDER = '1px solid rgba(163,177,198,0.25)'
 
@@ -86,16 +85,13 @@ function ColorSwatch({
 }
 
 export function ObjectSettingsSection() {
-  const { updateNodeStyle, updateEdgeType } = useFlowStore(
-    useShallow((s) => ({ updateNodeStyle: s.updateNodeStyle, updateEdgeType: s.updateEdgeType }))
-  )
-  const selectedNodes = useFlowStore(useShallow((s) => s.nodes.filter((n) => n.selected)))
-  const selectedEdges = useFlowStore(useShallow((s) => s.edges.filter((e) => e.selected)))
+  const { nodes, edges, selectedNodeIds, selectedEdgeId, updateNode, updateEdge } = useGraphEditorStore()
+
+  const selectedNodes = nodes.filter(n => selectedNodeIds.has(n.id))
+  const selectedEdges = edges.filter(e => e.id === selectedEdgeId)
   const hasNodeSelection = selectedNodes.length > 0
   const hasEdgeSelection = selectedEdges.length > 0
-  const firstEdgeData = hasEdgeSelection ? (selectedEdges[0].data as FlowEdgeData | undefined) : undefined
-  const activeEdgeStyle = firstEdgeData?.edgeStyle ?? 'solid'
-  const activeArrowType = firstEdgeData?.arrowType ?? 'arrow'
+  const firstEdge = hasEdgeSelection ? selectedEdges[0] : undefined
 
   if (!hasNodeSelection && !hasEdgeSelection) {
     return (
@@ -115,55 +111,80 @@ export function ObjectSettingsSection() {
       {hasNodeSelection && (
         <div style={{ background: '#fff', borderRadius: 10, border: PANEL_BORDER, padding: 14, marginBottom: hasEdgeSelection ? 10 : 0 }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: '#374151', marginBottom: 12 }}>
-            {selectedNodes.length === 1 ? '已选择 1 个节点' : `已选择 ${selectedNodes.length} 个节点`}
+            {selectedNodes.length === 1
+              ? `节点：${selectedNodes[0].shape || 'rectangle'}`
+              : `已选择 ${selectedNodes.length} 个节点`}
           </div>
           <div style={{ display: 'flex', gap: 14, marginBottom: 12 }}>
-            <ColorSwatch key={selectedNodes.map(n => n.id).join('-') + '-fill'} value={selectedNodes[0].data.fillColor} defaultVal="#ffffff" label="填充"
-              onChange={(color) => selectedNodes.forEach((n) => updateNodeStyle(n.id, { fillColor: color }))} />
-            <ColorSwatch key={selectedNodes.map(n => n.id).join('-') + '-stroke'} value={selectedNodes[0].data.strokeColor} defaultVal="#9ca3af" label="边框"
-              onChange={(color) => selectedNodes.forEach((n) => updateNodeStyle(n.id, { strokeColor: color }))} />
-            <ColorSwatch key={selectedNodes.map(n => n.id).join('-') + '-text'} value={selectedNodes[0].data.textColor} defaultVal="#1f2937" label="文字"
-              onChange={(color) => selectedNodes.forEach((n) => updateNodeStyle(n.id, { textColor: color }))} />
+            <ColorSwatch
+              key={selectedNodes.map(n => n.id).join('-') + '-fill'}
+              value={selectedNodes[0].fillColor}
+              defaultVal="#ffffff"
+              label="填充"
+              onChange={(color) => selectedNodes.forEach((n) => updateNode(n.id, { fillColor: color }))}
+            />
+            <ColorSwatch
+              key={selectedNodes.map(n => n.id).join('-') + '-stroke'}
+              value={selectedNodes[0].strokeColor}
+              defaultVal="#333333"
+              label="边框"
+              onChange={(color) => selectedNodes.forEach((n) => updateNode(n.id, { strokeColor: color }))}
+            />
+            <ColorSwatch
+              key={selectedNodes.map(n => n.id).join('-') + '-text'}
+              value={selectedNodes[0].textColor}
+              defaultVal="#000000"
+              label="文字"
+              onChange={(color) => selectedNodes.forEach((n) => updateNode(n.id, { textColor: color }))}
+            />
           </div>
-          <FlatBtn onClick={() => selectedNodes.forEach((n) => updateNodeStyle(n.id, { fillColor: undefined, strokeColor: undefined, textColor: undefined }))}>
+          <FlatBtn
+            onClick={() => selectedNodes.forEach((n) => updateNode(n.id, { fillColor: undefined, strokeColor: undefined, textColor: undefined }))}
+          >
             重置颜色
           </FlatBtn>
         </div>
       )}
-
       {hasEdgeSelection && (
         <div style={{ background: '#fff', borderRadius: 10, border: PANEL_BORDER, padding: 14 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: '#374151', marginBottom: 12 }}>
-            {selectedEdges.length === 1 ? '已选择 1 条边' : `已选择 ${selectedEdges.length} 条边`}
-          </div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: '#374151', marginBottom: 12 }}>已选择 1 条边</div>
+
           <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 6 }}>线条样式</div>
-          <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-            {(['solid', 'dashed', 'thick'] as EdgeStyle[]).map((style) => (
-              <FlatBtn key={style} onClick={() => selectedEdges.forEach((e) => updateEdgeType(e.id, { edgeStyle: style }))}
-                active={activeEdgeStyle === style} title={`${style} line`}>
-                {style === 'solid' ? '─' : style === 'dashed' ? '╌' : '━'}
-              </FlatBtn>
-            ))}
-          </div>
-          <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 6 }}>箭头</div>
           <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
-            {([
-              { type: 'arrow', label: '→', ariaLabel: '箭头' },
-              { type: 'none', label: '─', ariaLabel: '无' },
-              { type: 'bidirectional', label: '↔', ariaLabel: '双向' },
-              { type: 'circle', label: '○', ariaLabel: '圆形' },
-              { type: 'cross', label: '✕', ariaLabel: '叉号' },
-            ] as { type: ArrowType; label: string; ariaLabel: string }[]).map(({ type, label, ariaLabel }) => (
-              <FlatBtn key={type} onClick={() => selectedEdges.forEach((e) => updateEdgeType(e.id, { arrowType: type }))}
-                active={activeArrowType === type} title={ariaLabel}>
-                {label}
+            {(['solid', 'dotted', 'thick'] as const).map((style) => (
+              <FlatBtn
+                key={style}
+                onClick={() => selectedEdges.forEach((e) => updateEdge(e.id, { style }))}
+                active={firstEdge?.style === style}
+                title={style}
+              >
+                {style === 'solid' ? '─' : style === 'dotted' ? '╌' : '━'}
               </FlatBtn>
             ))}
           </div>
+
+          <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 6 }}>箭头类型</div>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+            {(['arrow', 'none', 'circle', 'cross', 'double'] as const).map((arrowType) => (
+              <FlatBtn
+                key={arrowType}
+                onClick={() => selectedEdges.forEach((e) => updateEdge(e.id, { arrowType }))}
+                active={(firstEdge?.arrowType || 'arrow') === arrowType}
+                title={arrowType}
+              >
+                {arrowType === 'arrow' ? '→' : arrowType === 'none' ? '─' : arrowType === 'circle' ? '○' : arrowType === 'cross' ? '✕' : '⇒'}
+              </FlatBtn>
+            ))}
+          </div>
+
           <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 8 }}>颜色</div>
-          <ColorSwatch key={selectedEdges.map(e => e.id).join('-')} value={(selectedEdges[0].data as FlowEdgeData | undefined)?.strokeColor}
-            defaultVal="#9ca3af" label="边颜色"
-            onChange={(color) => selectedEdges.forEach((e) => updateEdgeType(e.id, { strokeColor: color }))} />
+          <ColorSwatch
+            key={selectedEdges.map(e => e.id).join('-')}
+            value={firstEdge?.strokeColor}
+            defaultVal="#6b7280"
+            label="边颜色"
+            onChange={(color) => selectedEdges.forEach((e) => updateEdge(e.id, { strokeColor: color }))}
+          />
         </div>
       )}
     </div>

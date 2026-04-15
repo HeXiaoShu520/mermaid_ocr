@@ -50,6 +50,12 @@ export interface GraphData {
  * 解析节点定义，识别形状
  */
 function parseNodeDefinition(text: string): { id: string; label: string; shape: GraphNode['shape'] } | null {
+  // Mermaid v11 @{ shape: xxx, label: "yyy" } 语法
+  const atShapeMatch = text.match(/^(\w+)@\{\s*shape:\s*([\w-]+)(?:,\s*label:\s*"([^"]*)")?\s*\}/)
+  if (atShapeMatch) {
+    return { id: atShapeMatch[1], label: atShapeMatch[3] || atShapeMatch[1], shape: atShapeMatch[2] as GraphNode['shape'] }
+  }
+
   // 先检查是否有形状注释标记 %% shape-name
   const commentMatch = text.match(/%%\s*(\S+)\s*$/)
   let shapeFromComment: GraphNode['shape'] | undefined
@@ -121,9 +127,11 @@ function upsertNode(
   currentSubgraph: string | null
 ) {
   if (nodes.has(id)) {
-    // 已存在但在子图内 → 更新 subgraph 字段
-    if (currentSubgraph && !nodes.get(id)!.subgraph) {
-      nodes.get(id)!.subgraph = currentSubgraph
+    const existing = nodes.get(id)!
+    if (!existing.shape && data.shape) existing.shape = data.shape
+    if (existing.label === id && data.label !== id) existing.label = data.label
+    if (currentSubgraph && !existing.subgraph) {
+      existing.subgraph = currentSubgraph
       const sg = subgraphs.find(s => s.id === currentSubgraph)
       if (sg && !sg.nodes.includes(id)) sg.nodes.push(id)
     }

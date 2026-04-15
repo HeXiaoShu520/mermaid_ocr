@@ -25,7 +25,7 @@ export function getFavorites(): Favorite[] {
 export function addFavorite(name: string, code: string): Favorite {
   const favorites = getFavorites();
   const newFavorite: Favorite = {
-    id: Date.now().toString(),
+    id: `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
     name,
     code,
     createdAt: Date.now(),
@@ -66,10 +66,13 @@ function saveFavorites(favorites: Favorite[]): void {
   }
 }
 
+const INITIALIZED_KEY = 'mermaid-favorites-initialized';
+
 // 初始化示例收藏（仅在首次使用时）
 export function initializeSampleFavorites(): void {
-  const favorites = getFavorites();
-  if (favorites.length === 0) {
+  if (typeof window === 'undefined') return;
+  if (localStorage.getItem(INITIALIZED_KEY)) return;
+  localStorage.setItem(INITIALIZED_KEY, '1');
     const samples: Omit<Favorite, 'id' | 'createdAt' | 'updatedAt'>[] = [
       {
         name: "简单流程图",
@@ -99,5 +102,4 @@ export function initializeSampleFavorites(): void {
     samples.forEach(sample => {
       addFavorite(sample.name, sample.code);
     });
-  }
 }

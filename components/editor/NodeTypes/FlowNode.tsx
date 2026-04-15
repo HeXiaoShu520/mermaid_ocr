@@ -527,7 +527,7 @@ export function FlowNode({ id, data, selected }: NodeProps) {
         <svg
           className="absolute inset-0 w-full h-full overflow-visible"
           viewBox={isCylinder ? '0 0 200 100' : '0 0 200 100'}
-          preserveAspectRatio="none"
+          preserveAspectRatio={isSquarish ? "xMidYMid meet" : "none"}
         >
           <Renderer fill={fillColor} stroke={strokeColor} sw={strokeWidth} />
         </svg>
@@ -542,8 +542,8 @@ export function FlowNode({ id, data, selected }: NodeProps) {
     )
   }
 
-  // ── Text shape (no border, just text) ────────────────────────────────────
-  if (shape === 'text') {
+  // ── Comment shape (no border, just text) ────────────────────────────────────
+  if (shape === 'comment') {
     return (
       <div
         className="relative cursor-pointer select-none flex items-center justify-center px-2 py-1"

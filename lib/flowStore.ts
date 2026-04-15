@@ -64,7 +64,7 @@ export type NodeShape =
   | "brace"
   | "brace-r"
   | "braces"
-  | "text"
+  | "comment"
   | "odd"
   | "bang";
 

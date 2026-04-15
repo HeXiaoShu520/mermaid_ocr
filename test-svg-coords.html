@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    
+    mermaid.initialize({ startOnLoad: false, theme: 'default' });
+    
+    const code = `flowchart TD
+    A[Node A] --> B[Node B]
+    B --> C[Node C]
+    
+    subgraph SG1[Subgraph 1]
+      D[Node D]
+      E[Node E]
+    end`;
+    
+    async function test() {
+      const { svg } = await mermaid.render('test', code);
+      document.getElementById('output').innerHTML = svg;
+      
+      const svgEl = document.querySelector('svg');
+      const svgRect = svgEl.getBoundingClientRect();
+      
+      console.log('=== SVG Rect ===');
+      console.log('SVG:', svgRect);
+      
+      const nodes = svgEl.querySelectorAll('g.node');
+      nodes.forEach(node => {
+        const id = node.getAttribute('id');
+        const rect = node.getBoundingClientRect();
+        const transform = node.getAttribute('transform');
+        
+        // Get the actual shape element inside
+        const shape = node.querySelector('rect, circle, polygon, path');
+        const shapeRect = shape ? shape.getBoundingClientRect() : null;
+        
+        console.log(`\n=== Node: ${id} ===`);
+        console.log('transform:', transform);
+        console.log('g.node rect:', { 
+          left: rect.left - svgRect.left, 
+          top: rect.top - svgRect.top,
+          width: rect.width,
+          height: rect.height
+        });
+        if (shapeRect) {
+          console.log('shape rect:', {
+            left: shapeRect.left - svgRect.left,
+            top: shapeRect.top - svgRect.top,
+            width: shapeRect.width,
+            height: shapeRect.height
+          });
+        }
+      });
+      
+      const clusters = svgEl.querySelectorAll('g.cluster');
+      clusters.forEach(cluster => {
+        const id = cluster.getAttribute('id');
+        const rect = cluster.getBoundingClientRect();
+        const transform = cluster.getAttribute('transform');
+        
+        console.log(`\n=== Cluster: ${id} ===`);
+        console.log('transform:', transform);
+        console.log('rect:', {
+          left: rect.left - svgRect.left,
+          top: rect.top - svgRect.top,
+          width: rect.width,
+          height: rect.height
+        });
+      });
+    }
+    
+    test();
+  </script>
+</head>
+<body>
+  <div id="output"></div>
+</body>
+</html>
