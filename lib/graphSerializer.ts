@@ -2,7 +2,7 @@
  * Serializer 层：Graph → Mermaid 代码 + Layout JSON
  */
 
-import type { NodeState, EdgeState, LayoutMetadata } from './graphEditorStore'
+import type { NodeState, EdgeState, LayoutMetadata, SubgraphState } from './graphEditorStore'
 
 /**
  * 根据形状生成节点语法
@@ -77,6 +77,16 @@ function serializeNodeShape(node: NodeState): string {
       return `${node.id}@{ shape: sl-rect, label: "${label}" }`
     case 'lin-doc':
       return `${node.id}@{ shape: lin-doc, label: "${label}" }`
+    case 'brace':
+      return `${node.id}@{ shape: brace, label: "${label}" }`
+    case 'brace-r':
+      return `${node.id}@{ shape: brace-r, label: "${label}" }`
+    case 'braces':
+      return `${node.id}@{ shape: braces, label: "${label}" }`
+    case 'ellipse':
+      return `${node.id}@{ shape: ellipse, label: "${label}" }`
+    case 'text':
+      return `${node.id}@{ shape: text, label: "${label}" }`
 
     // 无对应语法，降级为矩形
     default:
@@ -90,9 +100,16 @@ function serializeNodeShape(node: NodeState): string {
 export function serializeToMermaid(
   nodes: NodeState[],
   edges: EdgeState[],
-  direction: 'TB' | 'LR' | 'BT' | 'RL' = 'TB'
+  direction: 'TB' | 'LR' | 'BT' | 'RL' = 'TB',
+  subgraphs: SubgraphState[] = [],
+  curveStyle: 'basis' | 'linear' | 'step' | 'stepBefore' | 'stepAfter' | 'monotoneX' | 'monotoneY' = 'basis'
 ): string {
   const lines: string[] = []
+
+  // 添加曲线样式配置
+  if (curveStyle !== 'basis') {
+    lines.push(`%%{init: {'flowchart': {'curve': '${curveStyle}'}}}%%`)
+  }
 
   lines.push(`flowchart ${direction}`)
 
@@ -118,9 +135,11 @@ export function serializeToMermaid(
     }
   })
 
-  // 输出子图（需要子图标签，从 subgraphs 参数获取）
+  // 输出子图（带标签）
   subgraphMap.forEach((subgraphNodes, subgraphId) => {
-    lines.push(`  subgraph ${subgraphId}`)
+    const sg = subgraphs.find(s => s.id === subgraphId)
+    const label = sg && sg.label !== sg.id ? ` [${sg.label}]` : ''
+    lines.push(`  subgraph ${subgraphId}${label}`)
     subgraphNodes.forEach(node => {
       lines.push(`    ${serializeNodeShape(node)}`)
     })

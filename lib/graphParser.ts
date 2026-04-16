@@ -16,7 +16,7 @@ export interface GraphNode {
     | 'notch-pent' | 'curv-trap' | 'delay' | 'bolt'
     | 'doc' | 'lin-doc' | 'st-doc' | 'tag-doc'
     | 'fork' | 'brace' | 'brace-r' | 'braces' | 'win-pane'
-    | 'ellipse' | 'cloud' | 'comment' | 'flag' | 'hourglass' | 'heart' | 'lightning' | 'moon'
+    | 'ellipse' | 'cloud' | 'comment' | 'flag' | 'hourglass' | 'heart' | 'lightning' | 'moon' | 'text'
   subgraph?: string  // 所属子图 ID
   fillColor?: string
   strokeColor?: string
@@ -53,7 +53,25 @@ function parseNodeDefinition(text: string): { id: string; label: string; shape: 
   // Mermaid v11 @{ shape: xxx, label: "yyy" } 语法
   const atShapeMatch = text.match(/^(\w+)@\{\s*shape:\s*([\w-]+)(?:,\s*label:\s*"([^"]*)")?\s*\}/)
   if (atShapeMatch) {
-    return { id: atShapeMatch[1], label: atShapeMatch[3] || atShapeMatch[1], shape: atShapeMatch[2] as GraphNode['shape'] }
+    const SHAPE_MAP: Record<string, GraphNode['shape']> = {
+      'rect': 'rectangle', 'rounded': 'rounded', 'stadium': 'stadium', 'pill': 'stadium',
+      'fr-rect': 'subroutine', 'subproc': 'subroutine',
+      'cyl': 'cylindrical', 'diam': 'diamond', 'hex': 'hexagon',
+      'circle': 'circle', 'dbl-circ': 'circle',
+      'tri': 'triangle', 'flip-tri': 'triangle',
+      'lean-r': 'parallelogram', 'lean-l': 'parallelogram-alt',
+      'trap-b': 'trapezoid', 'trap-t': 'trapezoid-alt',
+      'flag': 'flag', 'hourglass': 'hourglass', 'cloud': 'cloud',
+      'h-cyl': 'h-cyl', 'lin-cyl': 'lin-cyl',
+      'tag-rect': 'tag-rect', 'sl-rect': 'sl-rect', 'bow-rect': 'bow-rect',
+      'notch-pent': 'notch-pent', 'curv-trap': 'curv-trap',
+      'delay': 'delay', 'bolt': 'bolt',
+      'doc': 'doc', 'lin-doc': 'lin-doc', 'st-doc': 'st-doc', 'tag-doc': 'tag-doc',
+      'fork': 'fork', 'brace': 'brace', 'brace-r': 'brace-r', 'braces': 'braces',
+      'win-pane': 'win-pane', 'ellipse': 'ellipse', 'text': 'text',
+    }
+    const mappedShape = SHAPE_MAP[atShapeMatch[2]] ?? atShapeMatch[2] as GraphNode['shape']
+    return { id: atShapeMatch[1], label: atShapeMatch[3] || atShapeMatch[1], shape: mappedShape }
   }
 
   // 先检查是否有形状注释标记 %% shape-name
@@ -130,7 +148,16 @@ function upsertNode(
     const existing = nodes.get(id)!
     if (!existing.shape && data.shape) existing.shape = data.shape
     if (existing.label === id && data.label !== id) existing.label = data.label
-    if (currentSubgraph && !existing.subgraph) {
+    // 允许子图声明覆盖节点归属
+    if (currentSubgraph) {
+      // 如果节点已属于其他子图，从旧子图移除
+      if (existing.subgraph && existing.subgraph !== currentSubgraph) {
+        const oldSg = subgraphs.find(s => s.id === existing.subgraph)
+        if (oldSg) {
+          const idx = oldSg.nodes.indexOf(id)
+          if (idx !== -1) oldSg.nodes.splice(idx, 1)
+        }
+      }
       existing.subgraph = currentSubgraph
       const sg = subgraphs.find(s => s.id === currentSubgraph)
       if (sg && !sg.nodes.includes(id)) sg.nodes.push(id)
@@ -167,10 +194,10 @@ export function parseMermaidFlowchart(code: string): GraphData {
     }
 
     // 子图开始：subgraph id [label]
-    if (line.match(/^subgraph\s+(\w+)(?:\s*\[(.+?)\])?/i)) {
-      const m = line.match(/^subgraph\s+(\w+)(?:\s*\[(.+?)\])?/i)
+    if (line.match(/^subgraph\s+(.+?)(?:\s*\[(.+?)\])?\s*$/i)) {
+      const m = line.match(/^subgraph\s+(.+?)(?:\s*\[(.+?)\])?\s*$/i)
       if (m) {
-        const subgraphId = m[1]
+        const subgraphId = m[1].trim()
         const subgraphLabel = m[2] || subgraphId
         subgraphs.push({ id: subgraphId, label: subgraphLabel, nodes: [] })
         subgraphStack.push(subgraphId)

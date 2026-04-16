@@ -285,6 +285,7 @@ export default function GraphCanvas({}: GraphCanvasProps) {
           : undefined,
         backgroundSize: showGrid ? '20px 20px' : undefined,
         cursor: isPanning ? 'grabbing' : (connecting || pendingAddShape || isBoxSelecting) ? 'crosshair' : 'default',
+        userSelect: 'none',
       }}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}

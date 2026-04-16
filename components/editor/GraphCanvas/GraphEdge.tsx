@@ -20,51 +20,39 @@ export default function GraphEdge({ edge, nodes }: GraphEdgeProps) {
 
   // ─── Calculate Path ───
 
-  // 计算节点边缘的连接点
+  // 计算节点中心
   const fromCenterX = fromNode.x + fromNode.width / 2
   const fromCenterY = fromNode.y + fromNode.height / 2
   const toCenterX = toNode.x + toNode.width / 2
   const toCenterY = toNode.y + toNode.height / 2
 
-  // 计算角度
-  const angle = Math.atan2(toCenterY - fromCenterY, toCenterX - fromCenterX)
-
-  // 起点：从节点底部出发
-  const x1 = fromCenterX
-  const y1 = fromNode.y + fromNode.height
-
-  // 终点：计算到达目标节点边缘的位置
-  let x2 = toCenterX
-  let y2 = toCenterY
-
-  // 根据角度判断应该连接到目标节点的哪条边
   const dx = toCenterX - fromCenterX
   const dy = toCenterY - fromCenterY
   const absDx = Math.abs(dx)
   const absDy = Math.abs(dy)
 
+  // 计算起点：根据方向选择最近的边
+  let x1: number, y1: number
   if (absDy > absDx) {
     // 垂直方向为主
-    if (dy > 0) {
-      // 连接到顶部
-      x2 = toCenterX
-      y2 = toNode.y
-    } else {
-      // 连接到底部
-      x2 = toCenterX
-      y2 = toNode.y + toNode.height
-    }
+    x1 = fromCenterX
+    y1 = dy > 0 ? fromNode.y + fromNode.height : fromNode.y
   } else {
     // 水平方向为主
-    if (dx > 0) {
-      // 连接到左侧
-      x2 = toNode.x
-      y2 = toCenterY
-    } else {
-      // 连接到右侧
-      x2 = toNode.x + toNode.width
-      y2 = toCenterY
-    }
+    y1 = fromCenterY
+    x1 = dx > 0 ? fromNode.x + fromNode.width : fromNode.x
+  }
+
+  // 计算终点：根据方向选择最近的边
+  let x2: number, y2: number
+  if (absDy > absDx) {
+    // 垂直方向为主
+    x2 = toCenterX
+    y2 = dy > 0 ? toNode.y : toNode.y + toNode.height
+  } else {
+    // 水平方向为主
+    y2 = toCenterY
+    x2 = dx > 0 ? toNode.x : toNode.x + toNode.width
   }
 
   let pathD = ''
@@ -74,12 +62,79 @@ export default function GraphEdge({ edge, nodes }: GraphEdgeProps) {
     pathD = `M ${x1} ${y1} L ${x2} ${y2}`
   } else if (curveStyle === 'step') {
     // 阶梯线
-    const midY = (y1 + y2) / 2
-    pathD = `M ${x1} ${y1} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${y2}`
+    if (absDy > absDx) {
+      // 垂直方向为主：先垂直，再水平，再垂直
+      const midY = (y1 + y2) / 2
+      pathD = `M ${x1} ${y1} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${y2}`
+    } else {
+      // 水平方向为主：先水平，再垂直，再水平
+      const midX = (x1 + x2) / 2
+      pathD = `M ${x1} ${y1} L ${midX} ${y1} L ${midX} ${y2} L ${x2} ${y2}`
+    }
+  } else if (curveStyle === 'stepBefore') {
+    // 阶梯线（先垂直/水平到目标位置）
+    if (absDy > absDx) {
+      pathD = `M ${x1} ${y1} L ${x1} ${y2} L ${x2} ${y2}`
+    } else {
+      pathD = `M ${x1} ${y1} L ${x2} ${y1} L ${x2} ${y2}`
+    }
+  } else if (curveStyle === 'stepAfter') {
+    // 阶梯线（先水平/垂直到目标位置）
+    if (absDy > absDx) {
+      pathD = `M ${x1} ${y1} L ${x2} ${y1} L ${x2} ${y2}`
+    } else {
+      pathD = `M ${x1} ${y1} L ${x1} ${y2} L ${x2} ${y2}`
+    }
+  } else if (curveStyle === 'monotoneX' || curveStyle === 'monotoneY') {
+    // monotone 曲线，使用简化的贝塞尔曲线
+    const controlOffset = 40
+    const straightLen = 15
+    let preX2 = x2, preY2 = y2
+    if (absDy > absDx) {
+      preY2 = dy > 0 ? y2 - straightLen : y2 + straightLen
+    } else {
+      preX2 = dx > 0 ? x2 - straightLen : x2 + straightLen
+    }
+    let cp1x = x1, cp1y = y1
+    let cp2x = preX2, cp2y = preY2
+    if (absDy > absDx) {
+      cp1y = dy > 0 ? y1 + controlOffset : y1 - controlOffset
+      cp2y = dy > 0 ? preY2 - controlOffset : preY2 + controlOffset
+    } else {
+      cp1x = dx > 0 ? x1 + controlOffset : x1 - controlOffset
+      cp2x = dx > 0 ? preX2 - controlOffset : preX2 + controlOffset
+    }
+    pathD = `M ${x1} ${y1} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${preX2} ${preY2} L ${x2} ${y2}`
   } else {
     // 贝塞尔曲线（默认）
-    const controlOffset = 40
-    pathD = `M ${x1} ${y1} C ${x1} ${y1 + controlOffset}, ${x2} ${y2 - controlOffset}, ${x2} ${y2}`
+    const controlOffset = 60
+    const straightLen = 15 // 终点前的直线长度，确保箭头垂直
+
+    // 计算终点前的直线起点
+    let preX2 = x2, preY2 = y2
+    if (absDy > absDx) {
+      // 垂直连接
+      preY2 = dy > 0 ? y2 - straightLen : y2 + straightLen
+    } else {
+      // 水平连接
+      preX2 = dx > 0 ? x2 - straightLen : x2 + straightLen
+    }
+
+    // 计算控制点，让曲线更平滑
+    let cp1x = x1, cp1y = y1
+    let cp2x = preX2, cp2y = preY2
+
+    if (absDy > absDx) {
+      // 垂直方向为主
+      cp1y = dy > 0 ? y1 + controlOffset : y1 - controlOffset
+      cp2y = dy > 0 ? preY2 - controlOffset : preY2 + controlOffset
+    } else {
+      // 水平方向为主
+      cp1x = dx > 0 ? x1 + controlOffset : x1 - controlOffset
+      cp2x = dx > 0 ? preX2 - controlOffset : preX2 + controlOffset
+    }
+
+    pathD = `M ${x1} ${y1} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${preX2} ${preY2} L ${x2} ${y2}`
   }
 
   // ─── Handlers ───

@@ -1,0 +1,15 @@
+flowchart TD
+    A[用户进入系统] --> B{选择操作}
+    B --> C[编写代码]
+    B --> D[使用AI生成]
+    C --> E[编辑代码]
+    C --> F[导出图表]
+    D --> G[输入查询]
+    D --> H[复制代码]
+    subgraph 使用AI
+        G --> H
+    end
+    subgraph 使用编辑器
+        C --> E
+        E --> F
+    end

@@ -97,6 +97,8 @@ export function ShapeIcon({ shape, stroke = '#6b7280', fill = 'white' }: { shape
       return <svg viewBox="0 0 20 20" className="w-5 h-5"><path d="M6,2 C3,2 3,8 1,10 C3,12 3,18 6,18" fill="none" stroke={stroke} strokeWidth={sw} /><path d="M14,2 C17,2 17,8 19,10 C17,12 17,18 14,18" fill="none" stroke={stroke} strokeWidth={sw} /></svg>
     case 'comment':
       return <svg viewBox="0 0 20 16" className="w-5 h-4"><text x={10} y={12} fontSize={14} fill={stroke} fontFamily="sans-serif" textAnchor="middle" fontWeight="500">T</text></svg>
+    case 'text':
+      return <svg viewBox="0 0 20 16" className="w-5 h-4"><text x={10} y={12} fontSize={12} fill={stroke} fontFamily="sans-serif" textAnchor="middle">Aa</text></svg>
     case 'odd':
       return <svg viewBox="0 0 24 16" className="w-6 h-4"><polygon points="4,2 20,2 23,8 20,14 4,14 1,8" fill={fill} stroke={stroke} strokeWidth={sw} /></svg>
     case 'bang':
@@ -113,7 +115,7 @@ export const SHAPE_CATEGORIES: { id: ShapeCategory; label: string; shapes: { sha
   {
     id: "basic", label: "基础",
     shapes: [
-      { shape: "comment", label: "文本" },
+      { shape: "text", label: "文本" },
       { shape: "rectangle", label: "矩形" },
       { shape: "rounded", label: "圆角矩形" },
       { shape: "stadium", label: "体育场形" },

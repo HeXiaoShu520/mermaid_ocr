@@ -164,6 +164,7 @@ function ResizeDivider({ onDrag }: { onDrag: (dx: number) => void }) {
 function ShapesSection() {
   const pendingAddShape = useGraphEditorStore((s) => s.pendingAddShape);
   const setPendingAddShape = useGraphEditorStore((s) => s.setPendingAddShape);
+  const addSubgraph = useGraphEditorStore((s) => s.addSubgraph);
   const [tab, setTab] = useState<ShapeCategory>("basic");
   const category = SHAPE_CATEGORIES.find((c) => c.id === tab)!;
 
@@ -200,10 +201,19 @@ function ShapesSection() {
           </button>
         ))}
       </div>
-      <button onClick={() => setPendingAddShape(null)} style={{
-        marginTop: 6, background: "none", border: "none", fontSize: 10, color: "#9CA3AF",
-        cursor: "pointer", display: "flex", alignItems: "center", gap: 4,
-      }}>→ 取消选择</button>
+      <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center" }}>
+        <button onClick={() => setPendingAddShape(null)} style={{
+          background: "none", border: "none", fontSize: 10, color: "#9CA3AF",
+          cursor: "pointer", display: "flex", alignItems: "center", gap: 4,
+        }}>→ 取消选择</button>
+        <button onClick={() => {
+          const id = `sg_${Date.now()}`
+          addSubgraph({ id, label: '子图', nodes: [] })
+        }} style={{
+          background: "#F0FDF4", border: "1px solid #86EFAC", borderRadius: 6,
+          fontSize: 10, color: "#16A34A", cursor: "pointer", padding: "3px 8px",
+        }}>+ 添加子图</button>
+      </div>
     </div>
   );
 }
@@ -218,7 +228,13 @@ const THEMES: { value: Theme; label: string }[] = [
   { value: "forest", label: "森林" }, { value: "neutral", label: "中性" }, { value: "base", label: "基础" },
 ];
 const CURVES: { value: CurveStyle; label: string }[] = [
-  { value: "basis", label: "基础" }, { value: "linear", label: "线性" }, { value: "step", label: "阶梯" },
+  { value: "basis", label: "基础" },
+  { value: "linear", label: "线性" },
+  { value: "step", label: "阶梯" },
+  { value: "stepBefore", label: "阶梯前" },
+  { value: "stepAfter", label: "阶梯后" },
+  { value: "monotoneX", label: "单调X" },
+  { value: "monotoneY", label: "单调Y" },
 ];
 
 /* ─── Global Settings (left panel — applies to all diagrams) ─── */
@@ -665,9 +681,9 @@ function EditorContent() {
       <LeftPanel />
       <div ref={containerRef} style={{ flex: 1, display: "flex", padding: 12, minWidth: 0, overflow: "hidden", gap: 0 }}>
         <CodeEditor widthPx={codeW} />
-        <ResizeDivider onDrag={(dx) => setCodeW(w => Math.max(200, w + dx))} />
+        <ResizeDivider onDrag={(dx) => setCodeW(w => Math.max(220, w + dx))} />
         <MermaidPreview code={code} widthPx={previewW} />
-        <ResizeDivider onDrag={(dx) => setPreviewW(w => Math.max(200, w + dx))} />
+        <ResizeDivider onDrag={(dx) => setPreviewW(w => Math.max(220, w + dx))} />
         <VisualEditor />
       </div>
       <RightSidebar supported={supported} diagramType={diagramType} />

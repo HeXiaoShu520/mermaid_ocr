@@ -54,7 +54,7 @@ interface GraphEditorState {
   // ─── 设置 ───
   showGrid: boolean
   direction: 'TB' | 'LR' | 'BT' | 'RL'
-  curveStyle: 'basis' | 'linear' | 'step'
+  curveStyle: 'basis' | 'linear' | 'step' | 'stepBefore' | 'stepAfter' | 'monotoneX' | 'monotoneY'
   pendingAddShape: string | null
 
   // ─── 撤销/重做 ───
@@ -65,6 +65,7 @@ interface GraphEditorState {
   setNodes: (nodes: NodeState[]) => void
   setEdges: (edges: EdgeState[]) => void
   setSubgraphs: (subgraphs: SubgraphState[]) => void
+  addSubgraph: (subgraph: SubgraphState) => void
   setLayout: (layout: LayoutMetadata | null) => void
 
   updateNode: (id: string, patch: Partial<NodeState>) => void
@@ -95,7 +96,7 @@ interface GraphEditorState {
   setContextMenu: (menu: { x: number; y: number; nodeId?: string; edgeId?: string } | null) => void
   setShowGrid: (show: boolean) => void
   setDirection: (direction: 'TB' | 'LR' | 'BT' | 'RL') => void
-  setCurveStyle: (style: 'basis' | 'linear' | 'step') => void
+  setCurveStyle: (style: 'basis' | 'linear' | 'step' | 'stepBefore' | 'stepAfter' | 'monotoneX' | 'monotoneY') => void
   setPendingAddShape: (shape: string | null) => void
 
   pushHistory: (code: string) => void
@@ -133,6 +134,7 @@ export const useGraphEditorStore = create<GraphEditorState>((set, get) => ({
   setNodes: (nodes) => set({ nodes }),
   setEdges: (edges) => set({ edges }),
   setSubgraphs: (subgraphs) => set({ subgraphs }),
+  addSubgraph: (subgraph) => set({ subgraphs: [...get().subgraphs, subgraph] }),
   setLayout: (layout) => set({ layout }),
 
   updateNode: (id, patch) => set({

@@ -12,9 +12,7 @@ export default function Subgraph({ subgraph, nodes }: SubgraphProps) {
   // 计算子图的边界框
   const bounds = useMemo(() => {
     const subgraphNodes = nodes.filter(n => n.subgraph === subgraph.id)
-    if (subgraphNodes.length === 0) {
-      return { x: 0, y: 0, width: 200, height: 100 }
-    }
+    if (subgraphNodes.length === 0) return null
 
     let minX = Infinity
     let minY = Infinity
@@ -36,6 +34,8 @@ export default function Subgraph({ subgraph, nodes }: SubgraphProps) {
       height: maxY - minY + padding * 2 + 30,
     }
   }, [subgraph.id, nodes])
+
+  if (!bounds) return null
 
   return (
     <div

@@ -57,7 +57,7 @@ export default function VisualEditor() {
   const loadToEditor = useStore(s => s.loadToEditor)
   const syncToCode = useStore(s => s.syncToCode)
 
-  const { nodes, edges, initGraph, direction } = useGraphEditorStore()
+  const { nodes, edges, subgraphs, initGraph, direction, curveStyle } = useGraphEditorStore()
 
   // 专用编辑器的 state
   const [pieDraft, setPieDraft] = useState<{ title: string; data: PieData[] } | null>(null)
@@ -92,6 +92,15 @@ export default function VisualEditor() {
     }
   }, [tempMermaid, diagramType, direction, initGraph])
 
+  // 监听 direction 和 curveStyle 变化，自动同步到代码
+  useEffect(() => {
+    if (diagramType === 'flowchart' && nodes.length > 0) {
+      const code = serializeToMermaid(nodes, edges, direction, subgraphs, curveStyle)
+      setTempMermaid(code)
+      syncToCode()
+    }
+  }, [direction, curveStyle])
+
   // 同步各个编辑器到代码
   const handleSyncToCode = useCallback(() => {
     try {
@@ -103,7 +112,7 @@ export default function VisualEditor() {
       } else if (diagramType === 'sequenceDiagram' && seqDraft) {
         code = serializeSeqData(seqDraft.participants, seqDraft.messages)
       } else if (diagramType === 'flowchart') {
-        code = serializeToMermaid(nodes, edges, direction)
+        code = serializeToMermaid(nodes, edges, direction, subgraphs, curveStyle)
       }
 
       if (code) {
@@ -113,7 +122,7 @@ export default function VisualEditor() {
     } catch (err) {
       console.error('[VisualEditor] 同步失败:', err)
     }
-  }, [diagramType, pieDraft, xyDraft, seqDraft, nodes, edges, direction, setTempMermaid, syncToCode])
+  }, [diagramType, pieDraft, xyDraft, seqDraft, nodes, edges, direction, subgraphs, curveStyle, setTempMermaid, syncToCode])
 
   if (isEmpty) {
     return (

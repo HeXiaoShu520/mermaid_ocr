@@ -196,7 +196,7 @@ export default function GraphNode({
 
   // ─── Render ───
 
-  const showHandles = isSelected || isHovered
+  const showHandles = (isSelected || isHovered) && node.shape !== 'text' && node.shape !== 'comment'
 
   // 根据形状决定渲染方式
   const renderNodeShape = () => {
@@ -250,6 +250,17 @@ export default function GraphNode({
             {node.label}
           </div>
         )
+      case 'text':
+        return (
+          <div style={{
+            ...baseStyle,
+            border: 'none',
+            background: 'transparent',
+            boxShadow: 'none',
+          }}>
+            {node.label}
+          </div>
+        )
       case 'rounded':
         return <div style={{ ...baseStyle, borderRadius: 20 }}>{node.label}</div>
       case 'stadium':
@@ -276,9 +287,9 @@ export default function GraphNode({
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
               <polygon
                 points={`${node.width * 0.25},0 ${node.width * 0.75},0 ${node.width},${node.height / 2} ${node.width * 0.75},${node.height} ${node.width * 0.25},${node.height} 0,${node.height / 2}`}
-                fill="#fff"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
+                fill={fillColor}
+                stroke={strokeColor}
+                strokeWidth={strokeWidth}
               />
             </svg>
             <span style={textStyle}>{node.label}</span>
@@ -290,9 +301,9 @@ export default function GraphNode({
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
               <polygon
                 points={`${node.width * 0.2},0 ${node.width},0 ${node.width * 0.8},${node.height} 0,${node.height}`}
-                fill="#fff"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
+                fill={fillColor}
+                stroke={strokeColor}
+                strokeWidth={strokeWidth}
               />
             </svg>
             <span style={textStyle}>{node.label}</span>
@@ -304,9 +315,9 @@ export default function GraphNode({
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
               <polygon
                 points={`0,${node.height} ${node.width},${node.height} ${node.width * 0.9},0 ${node.width * 0.1},0`}
-                fill="#fff"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
+                fill={fillColor}
+                stroke={strokeColor}
+                strokeWidth={strokeWidth}
               />
             </svg>
             <span style={textStyle}>{node.label}</span>
@@ -376,9 +387,9 @@ export default function GraphNode({
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
               <polygon
                 points={`${node.width / 2},0 ${node.width},${node.height} 0,${node.height}`}
-                fill="#fff"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
+                fill={fillColor}
+                stroke={strokeColor}
+                strokeWidth={strokeWidth}
               />
             </svg>
             <span style={textStyle}>{node.label}</span>
@@ -404,9 +415,9 @@ export default function GraphNode({
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
               <polygon
                 points={`${node.width * 0.2},0 ${node.width * 0.8},0 ${node.width},${node.height} 0,${node.height}`}
-                fill="#fff"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
+                fill={fillColor}
+                stroke={strokeColor}
+                strokeWidth={strokeWidth}
               />
             </svg>
             <span style={textStyle}>{node.label}</span>
@@ -425,9 +436,9 @@ export default function GraphNode({
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
               <polygon
                 points={`0,0 ${node.width},0 0,${node.height} ${node.width},${node.height}`}
-                fill="#fff"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
+                fill={fillColor}
+                stroke={strokeColor}
+                strokeWidth={strokeWidth}
               />
             </svg>
             <span style={textStyle}>{node.label}</span>
@@ -437,29 +448,37 @@ export default function GraphNode({
 
 
 
-      case 'flag':
+      case 'flag': {
+        const w = node.width, h = node.height
+        const amp = h * 0.12
+        // 上边波浪（左→右），下边波浪（右→左），形成封闭的纸带形状
+        const d = [
+          `M0,${amp}`,
+          `C${w*0.25},${-amp} ${w*0.5},${amp*2} ${w*0.75},${amp}`,
+          `C${w*0.875},0 ${w},${amp} ${w},${amp}`,
+          `L${w},${h-amp}`,
+          `C${w*0.75},${h+amp} ${w*0.5},${h-amp*2} ${w*0.25},${h-amp}`,
+          `C${w*0.125},${h-amp*0.5} 0,${h-amp} 0,${h-amp}`,
+          'Z'
+        ].join(' ')
         return (
           <div style={{ ...baseStyle, border: 'none', background: 'transparent', boxShadow: 'none' }}>
-            <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
-              <polygon
-                points={`0,0 ${node.width * 0.8},0 ${node.width},${node.height / 2} ${node.width * 0.8},${node.height} 0,${node.height}`}
-                fill="#fff"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
-              />
+            <svg width={w} height={h} style={{ position: 'absolute', left: 0, top: 0 }} overflow="visible">
+              <path d={d} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
             </svg>
             <span style={textStyle}>{node.label}</span>
           </div>
         )
+      }
       case 'cloud':
         return (
           <div style={{ ...baseStyle, border: 'none', background: 'transparent', boxShadow: 'none' }}>
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
               <path
                 d={`M${node.width * 0.25},${node.height * 0.75} C${node.width * 0.1},${node.height * 0.75} ${node.width * 0.1},${node.height * 0.5} ${node.width * 0.2},${node.height * 0.4} C${node.width * 0.15},${node.height * 0.2} ${node.width * 0.3},${node.height * 0.1} ${node.width * 0.4},${node.height * 0.15} C${node.width * 0.5},${node.height * 0.05} ${node.width * 0.7},${node.height * 0.05} ${node.width * 0.75},${node.height * 0.15} C${node.width * 0.9},${node.height * 0.1} ${node.width * 0.95},${node.height * 0.3} ${node.width * 0.85},${node.height * 0.4} C${node.width * 0.95},${node.height * 0.55} ${node.width * 0.9},${node.height * 0.75} ${node.width * 0.75},${node.height * 0.75} Z`}
-                fill="#fff"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
+                fill={fillColor}
+                stroke={strokeColor}
+                strokeWidth={strokeWidth}
               />
             </svg>
             <span style={textStyle}>{node.label}</span>
@@ -470,40 +489,10 @@ export default function GraphNode({
         return (
           <div style={{ ...baseStyle, border: 'none', background: 'transparent', boxShadow: 'none' }}>
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
-              <ellipse
-                cx={node.width * 0.15}
-                cy={node.height / 2}
-                rx={node.width * 0.15}
-                ry={node.height / 2}
-                fill="#fff"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
-              />
-              <line
-                x1={node.width * 0.15}
-                y1={0}
-                x2={node.width * 0.85}
-                y2={0}
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
-              />
-              <line
-                x1={node.width * 0.15}
-                y1={node.height}
-                x2={node.width * 0.85}
-                y2={node.height}
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
-              />
-              <ellipse
-                cx={node.width * 0.85}
-                cy={node.height / 2}
-                rx={node.width * 0.15}
-                ry={node.height / 2}
-                fill="#fff"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
-              />
+              <ellipse cx={node.width * 0.15} cy={node.height / 2} rx={node.width * 0.15} ry={node.height / 2} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
+              <line x1={node.width * 0.15} y1={0} x2={node.width * 0.85} y2={0} stroke={strokeColor} strokeWidth={strokeWidth} />
+              <line x1={node.width * 0.15} y1={node.height} x2={node.width * 0.85} y2={node.height} stroke={strokeColor} strokeWidth={strokeWidth} />
+              <ellipse cx={node.width * 0.85} cy={node.height / 2} rx={node.width * 0.15} ry={node.height / 2} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
             </svg>
             <span style={textStyle}>{node.label}</span>
           </div>
@@ -512,57 +501,12 @@ export default function GraphNode({
         return (
           <div style={{ ...baseStyle, border: 'none', background: 'transparent', boxShadow: 'none' }}>
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
-              <ellipse
-                cx={node.width / 2}
-                cy={node.height * 0.15}
-                rx={node.width / 2}
-                ry={node.height * 0.15}
-                fill="#fff"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
-              />
-              <rect
-                x={0}
-                y={node.height * 0.15}
-                width={node.width}
-                height={node.height * 0.7}
-                fill="#fff"
-                stroke="none"
-              />
-              <line
-                x1={0}
-                y1={node.height * 0.15}
-                x2={0}
-                y2={node.height * 0.85}
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
-              />
-              <line
-                x1={node.width}
-                y1={node.height * 0.15}
-                x2={node.width}
-                y2={node.height * 0.85}
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
-              />
-              <ellipse
-                cx={node.width / 2}
-                cy={node.height * 0.85}
-                rx={node.width / 2}
-                ry={node.height * 0.15}
-                fill="#fff"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
-              />
-              <ellipse
-                cx={node.width / 2}
-                cy={node.height * 0.4}
-                rx={node.width / 2}
-                ry={node.height * 0.1}
-                fill="none"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={1}
-              />
+              <ellipse cx={node.width / 2} cy={node.height * 0.15} rx={node.width / 2} ry={node.height * 0.15} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
+              <rect x={0} y={node.height * 0.15} width={node.width} height={node.height * 0.7} fill={fillColor} stroke="none" />
+              <line x1={0} y1={node.height * 0.15} x2={0} y2={node.height * 0.85} stroke={strokeColor} strokeWidth={strokeWidth} />
+              <line x1={node.width} y1={node.height * 0.15} x2={node.width} y2={node.height * 0.85} stroke={strokeColor} strokeWidth={strokeWidth} />
+              <ellipse cx={node.width / 2} cy={node.height * 0.85} rx={node.width / 2} ry={node.height * 0.15} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
+              <ellipse cx={node.width / 2} cy={node.height * 0.4} rx={node.width / 2} ry={node.height * 0.1} fill="none" stroke={strokeColor} strokeWidth={1} />
             </svg>
             <span style={textStyle}>{node.label}</span>
           </div>
@@ -571,22 +515,8 @@ export default function GraphNode({
         return (
           <div style={{ ...baseStyle, border: 'none', background: 'transparent', boxShadow: 'none' }}>
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
-              <rect
-                x={0}
-                y={0}
-                width={node.width}
-                height={node.height}
-                rx={4}
-                fill="#fff"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
-              />
-              <polygon
-                points={`${node.width * 0.75},0 ${node.width},0 ${node.width},${node.height * 0.4}`}
-                fill="none"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={1}
-              />
+              <rect x={0} y={0} width={node.width} height={node.height} rx={4} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
+              <polygon points={`${node.width * 0.75},0 ${node.width},0 ${node.width},${node.height * 0.4}`} fill="none" stroke={strokeColor} strokeWidth={1} />
             </svg>
             <span style={textStyle}>{node.label}</span>
           </div>
@@ -595,12 +525,7 @@ export default function GraphNode({
         return (
           <div style={{ ...baseStyle, border: 'none', background: 'transparent', boxShadow: 'none' }}>
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
-              <polygon
-                points={`0,${node.height * 0.3} ${node.width},0 ${node.width},${node.height} 0,${node.height}`}
-                fill="#fff"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
-              />
+              <polygon points={`0,${node.height * 0.3} ${node.width},0 ${node.width},${node.height} 0,${node.height}`} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
             </svg>
             <span style={textStyle}>{node.label}</span>
           </div>
@@ -609,12 +534,7 @@ export default function GraphNode({
         return (
           <div style={{ ...baseStyle, border: 'none', background: 'transparent', boxShadow: 'none' }}>
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
-              <path
-                d={`M${node.width * 0.2},0 L${node.width * 0.8},0 C${node.width * 0.9},0 ${node.width * 0.9},${node.height / 2} ${node.width * 0.8},${node.height / 2} C${node.width * 0.9},${node.height / 2} ${node.width * 0.9},${node.height} ${node.width * 0.8},${node.height} L${node.width * 0.2},${node.height} C${node.width * 0.1},${node.height} ${node.width * 0.1},${node.height / 2} ${node.width * 0.2},${node.height / 2} C${node.width * 0.1},${node.height / 2} ${node.width * 0.1},0 ${node.width * 0.2},0`}
-                fill="#fff"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
-              />
+              <path d={`M${node.width * 0.2},0 L${node.width * 0.8},0 C${node.width * 0.9},0 ${node.width * 0.9},${node.height / 2} ${node.width * 0.8},${node.height / 2} C${node.width * 0.9},${node.height / 2} ${node.width * 0.9},${node.height} ${node.width * 0.8},${node.height} L${node.width * 0.2},${node.height} C${node.width * 0.1},${node.height} ${node.width * 0.1},${node.height / 2} ${node.width * 0.2},${node.height / 2} C${node.width * 0.1},${node.height / 2} ${node.width * 0.1},0 ${node.width * 0.2},0`} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
             </svg>
             <span style={textStyle}>{node.label}</span>
           </div>
@@ -623,12 +543,7 @@ export default function GraphNode({
         return (
           <div style={{ ...baseStyle, border: 'none', background: 'transparent', boxShadow: 'none' }}>
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
-              <polygon
-                points={`${node.width * 0.2},0 ${node.width * 0.8},0 ${node.width},${node.height * 0.3} ${node.width},${node.height} 0,${node.height} 0,${node.height * 0.3}`}
-                fill="#fff"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
-              />
+              <polygon points={`${node.width * 0.2},0 ${node.width * 0.8},0 ${node.width},${node.height * 0.3} ${node.width},${node.height} 0,${node.height} 0,${node.height * 0.3}`} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
             </svg>
             <span style={textStyle}>{node.label}</span>
           </div>
@@ -637,12 +552,7 @@ export default function GraphNode({
         return (
           <div style={{ ...baseStyle, border: 'none', background: 'transparent', boxShadow: 'none' }}>
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
-              <path
-                d={`M${node.width * 0.2},0 L${node.width * 0.8},0 C${node.width * 0.9},${node.height / 2} ${node.width * 0.9},${node.height / 2} ${node.width * 0.8},${node.height} L${node.width * 0.2},${node.height} C${node.width * 0.1},${node.height / 2} ${node.width * 0.1},${node.height / 2} ${node.width * 0.2},0`}
-                fill="#fff"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
-              />
+              <path d={`M${node.width * 0.2},0 L${node.width * 0.8},0 C${node.width * 0.9},${node.height / 2} ${node.width * 0.9},${node.height / 2} ${node.width * 0.8},${node.height} L${node.width * 0.2},${node.height} C${node.width * 0.1},${node.height / 2} ${node.width * 0.1},${node.height / 2} ${node.width * 0.2},0`} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
             </svg>
             <span style={textStyle}>{node.label}</span>
           </div>
@@ -651,12 +561,7 @@ export default function GraphNode({
         return (
           <div style={{ ...baseStyle, border: 'none', background: 'transparent', boxShadow: 'none' }}>
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
-              <path
-                d={`M0,0 L${node.width * 0.75},0 C${node.width * 0.9},0 ${node.width * 0.9},${node.height} ${node.width * 0.75},${node.height} L0,${node.height} Z`}
-                fill="#fff"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
-              />
+              <path d={`M0,0 L${node.width * 0.75},0 C${node.width * 0.9},0 ${node.width * 0.9},${node.height} ${node.width * 0.75},${node.height} L0,${node.height} Z`} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
             </svg>
             <span style={textStyle}>{node.label}</span>
           </div>
@@ -665,12 +570,7 @@ export default function GraphNode({
         return (
           <div style={{ ...baseStyle, border: 'none', background: 'transparent', boxShadow: 'none' }}>
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
-              <polygon
-                points={`${node.width * 0.55},0 ${node.width * 0.3},${node.height * 0.45} ${node.width * 0.5},${node.height * 0.45} ${node.width * 0.45},${node.height} ${node.width * 0.7},${node.height * 0.55} ${node.width * 0.5},${node.height * 0.55}`}
-                fill="#fff"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
-              />
+              <polygon points={`${node.width * 0.55},0 ${node.width * 0.3},${node.height * 0.45} ${node.width * 0.5},${node.height * 0.45} ${node.width * 0.45},${node.height} ${node.width * 0.7},${node.height * 0.55} ${node.width * 0.5},${node.height * 0.55}`} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
             </svg>
             <span style={textStyle}>{node.label}</span>
           </div>
@@ -679,12 +579,7 @@ export default function GraphNode({
         return (
           <div style={{ ...baseStyle, border: 'none', background: 'transparent', boxShadow: 'none' }}>
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
-              <path
-                d={`M0,0 L${node.width},0 L${node.width},${node.height * 0.8} C${node.width * 0.7},${node.height * 0.7} ${node.width * 0.3},${node.height * 0.9} 0,${node.height * 0.8} Z`}
-                fill="#fff"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
-              />
+              <path d={`M0,0 L${node.width},0 L${node.width},${node.height * 0.8} C${node.width * 0.7},${node.height * 0.7} ${node.width * 0.3},${node.height * 0.9} 0,${node.height * 0.8} Z`} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
             </svg>
             <span style={textStyle}>{node.label}</span>
           </div>
@@ -693,20 +588,8 @@ export default function GraphNode({
         return (
           <div style={{ ...baseStyle, border: 'none', background: 'transparent', boxShadow: 'none' }}>
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
-              <path
-                d={`M0,0 L${node.width},0 L${node.width},${node.height * 0.8} C${node.width * 0.7},${node.height * 0.7} ${node.width * 0.3},${node.height * 0.9} 0,${node.height * 0.8} Z`}
-                fill="#fff"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
-              />
-              <line
-                x1={node.width * 0.2}
-                y1={0}
-                x2={node.width * 0.2}
-                y2={node.height * 0.75}
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={1}
-              />
+              <path d={`M0,0 L${node.width},0 L${node.width},${node.height * 0.8} C${node.width * 0.7},${node.height * 0.7} ${node.width * 0.3},${node.height * 0.9} 0,${node.height * 0.8} Z`} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
+              <line x1={node.width * 0.2} y1={0} x2={node.width * 0.2} y2={node.height * 0.75} stroke={strokeColor} strokeWidth={1} />
             </svg>
             <span style={textStyle}>{node.label}</span>
           </div>
@@ -715,18 +598,8 @@ export default function GraphNode({
         return (
           <div style={{ ...baseStyle, border: 'none', background: 'transparent', boxShadow: 'none' }}>
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
-              <path
-                d={`M${node.width * 0.1},${node.height * 0.15} L${node.width * 0.9},${node.height * 0.15} L${node.width * 0.9},${node.height * 0.85} C${node.width * 0.65},${node.height * 0.8} ${node.width * 0.35},${node.height * 0.9} ${node.width * 0.1},${node.height * 0.85} Z`}
-                fill="#fff"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
-              />
-              <path
-                d={`M0,0 L${node.width * 0.8},0 L${node.width * 0.8},${node.height * 0.7} C${node.width * 0.55},${node.height * 0.65} ${node.width * 0.25},${node.height * 0.75} 0,${node.height * 0.7} Z`}
-                fill="#fff"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
-              />
+              <path d={`M${node.width * 0.1},${node.height * 0.15} L${node.width * 0.9},${node.height * 0.15} L${node.width * 0.9},${node.height * 0.85} C${node.width * 0.65},${node.height * 0.8} ${node.width * 0.35},${node.height * 0.9} ${node.width * 0.1},${node.height * 0.85} Z`} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
+              <path d={`M0,0 L${node.width * 0.8},0 L${node.width * 0.8},${node.height * 0.7} C${node.width * 0.55},${node.height * 0.65} ${node.width * 0.25},${node.height * 0.75} 0,${node.height * 0.7} Z`} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
             </svg>
             <span style={textStyle}>{node.label}</span>
           </div>
@@ -735,18 +608,8 @@ export default function GraphNode({
         return (
           <div style={{ ...baseStyle, border: 'none', background: 'transparent', boxShadow: 'none' }}>
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
-              <path
-                d={`M0,0 L${node.width},0 L${node.width},${node.height * 0.8} C${node.width * 0.7},${node.height * 0.7} ${node.width * 0.3},${node.height * 0.9} 0,${node.height * 0.8} Z`}
-                fill="#fff"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
-              />
-              <polygon
-                points={`${node.width * 0.75},0 ${node.width},0 ${node.width},${node.height * 0.3}`}
-                fill="none"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={1}
-              />
+              <path d={`M0,0 L${node.width},0 L${node.width},${node.height * 0.8} C${node.width * 0.7},${node.height * 0.7} ${node.width * 0.3},${node.height * 0.9} 0,${node.height * 0.8} Z`} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
+              <polygon points={`${node.width * 0.75},0 ${node.width},0 ${node.width},${node.height * 0.3}`} fill="none" stroke={strokeColor} strokeWidth={1} />
             </svg>
             <span style={textStyle}>{node.label}</span>
           </div>
@@ -755,15 +618,7 @@ export default function GraphNode({
         return (
           <div style={{ ...baseStyle, border: 'none', background: 'transparent', boxShadow: 'none' }}>
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
-              <rect
-                x={0}
-                y={node.height * 0.3}
-                width={node.width}
-                height={node.height * 0.4}
-                fill={isSelected ? '#3b82f6' : '#333'}
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
-              />
+              <rect x={0} y={node.height * 0.3} width={node.width} height={node.height * 0.4} fill={strokeColor} stroke={strokeColor} strokeWidth={strokeWidth} />
             </svg>
             <span style={{ ...textStyle, color: '#fff' }}>{node.label}</span>
           </div>
@@ -772,12 +627,7 @@ export default function GraphNode({
         return (
           <div style={{ ...baseStyle, border: 'none', background: 'transparent', boxShadow: 'none' }}>
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
-              <path
-                d={`M${node.width * 0.8},0 C${node.width * 0.5},0 ${node.width * 0.5},${node.height * 0.4} ${node.width * 0.2},${node.height / 2} C${node.width * 0.5},${node.height * 0.6} ${node.width * 0.5},${node.height} ${node.width * 0.8},${node.height}`}
-                fill="none"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
-              />
+              <path d={`M${node.width * 0.8},0 C${node.width * 0.5},0 ${node.width * 0.5},${node.height * 0.4} ${node.width * 0.2},${node.height / 2} C${node.width * 0.5},${node.height * 0.6} ${node.width * 0.5},${node.height} ${node.width * 0.8},${node.height}`} fill="none" stroke={strokeColor} strokeWidth={strokeWidth} />
             </svg>
             <span style={textStyle}>{node.label}</span>
           </div>
@@ -786,12 +636,7 @@ export default function GraphNode({
         return (
           <div style={{ ...baseStyle, border: 'none', background: 'transparent', boxShadow: 'none' }}>
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
-              <path
-                d={`M${node.width * 0.2},0 C${node.width * 0.5},0 ${node.width * 0.5},${node.height * 0.4} ${node.width * 0.8},${node.height / 2} C${node.width * 0.5},${node.height * 0.6} ${node.width * 0.5},${node.height} ${node.width * 0.2},${node.height}`}
-                fill="none"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
-              />
+              <path d={`M${node.width * 0.2},0 C${node.width * 0.5},0 ${node.width * 0.5},${node.height * 0.4} ${node.width * 0.8},${node.height / 2} C${node.width * 0.5},${node.height * 0.6} ${node.width * 0.5},${node.height} ${node.width * 0.2},${node.height}`} fill="none" stroke={strokeColor} strokeWidth={strokeWidth} />
             </svg>
             <span style={textStyle}>{node.label}</span>
           </div>
@@ -800,18 +645,8 @@ export default function GraphNode({
         return (
           <div style={{ ...baseStyle, border: 'none', background: 'transparent', boxShadow: 'none' }}>
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
-              <path
-                d={`M${node.width * 0.35},0 C${node.width * 0.2},0 ${node.width * 0.2},${node.height * 0.4} ${node.width * 0.05},${node.height / 2} C${node.width * 0.2},${node.height * 0.6} ${node.width * 0.2},${node.height} ${node.width * 0.35},${node.height}`}
-                fill="none"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
-              />
-              <path
-                d={`M${node.width * 0.65},0 C${node.width * 0.8},0 ${node.width * 0.8},${node.height * 0.4} ${node.width * 0.95},${node.height / 2} C${node.width * 0.8},${node.height * 0.6} ${node.width * 0.8},${node.height} ${node.width * 0.65},${node.height}`}
-                fill="none"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
-              />
+              <path d={`M${node.width * 0.35},0 C${node.width * 0.2},0 ${node.width * 0.2},${node.height * 0.4} ${node.width * 0.05},${node.height / 2} C${node.width * 0.2},${node.height * 0.6} ${node.width * 0.2},${node.height} ${node.width * 0.35},${node.height}`} fill="none" stroke={strokeColor} strokeWidth={strokeWidth} />
+              <path d={`M${node.width * 0.65},0 C${node.width * 0.8},0 ${node.width * 0.8},${node.height * 0.4} ${node.width * 0.95},${node.height / 2} C${node.width * 0.8},${node.height * 0.6} ${node.width * 0.8},${node.height} ${node.width * 0.65},${node.height}`} fill="none" stroke={strokeColor} strokeWidth={strokeWidth} />
             </svg>
             <span style={textStyle}>{node.label}</span>
           </div>
@@ -820,32 +655,9 @@ export default function GraphNode({
         return (
           <div style={{ ...baseStyle, border: 'none', background: 'transparent', boxShadow: 'none' }}>
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
-              <rect
-                x={0}
-                y={0}
-                width={node.width}
-                height={node.height}
-                rx={4}
-                fill="#fff"
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={isSelected ? 2 : 1}
-              />
-              <line
-                x1={node.width / 2}
-                y1={0}
-                x2={node.width / 2}
-                y2={node.height}
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={1}
-              />
-              <line
-                x1={0}
-                y1={node.height / 2}
-                x2={node.width}
-                y2={node.height / 2}
-                stroke={isSelected ? '#3b82f6' : '#333'}
-                strokeWidth={1}
-              />
+              <rect x={0} y={0} width={node.width} height={node.height} rx={4} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
+              <line x1={node.width / 2} y1={0} x2={node.width / 2} y2={node.height} stroke={strokeColor} strokeWidth={1} />
+              <line x1={0} y1={node.height / 2} x2={node.width} y2={node.height / 2} stroke={strokeColor} strokeWidth={1} />
             </svg>
             <span style={textStyle}>{node.label}</span>
           </div>
