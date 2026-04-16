@@ -44,6 +44,7 @@ export interface GraphData {
   edges: GraphEdge[]
   subgraphs: Subgraph[]
   direction?: 'TB' | 'LR' | 'BT' | 'RL'
+  curveStyle?: 'basis' | 'linear' | 'step' | 'stepBefore' | 'stepAfter' | 'monotoneX' | 'monotoneY'
 }
 
 /**
@@ -179,6 +180,22 @@ export function parseMermaidFlowchart(code: string): GraphData {
   const edges: GraphEdge[] = []
   const subgraphs: Subgraph[] = []
   let direction: 'TB' | 'LR' | 'BT' | 'RL' = 'TB'
+  let curveStyle: GraphData['curveStyle'] = undefined
+
+  // 先从 init 指令中提取 curveStyle
+  const initMatch = code.match(/%%\{init:\s*(\{[\s\S]*?\})\s*\}%%/)
+  if (initMatch) {
+    try {
+      const initStr = initMatch[1].replace(/'/g, '"')
+      const initObj = JSON.parse(initStr)
+      const curve = initObj?.flowchart?.curve
+      if (curve) {
+        curveStyle = curve as GraphData['curveStyle']
+      }
+    } catch {
+      // init 解析失败，忽略
+    }
+  }
 
   const lines = code.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('%%'))
 
@@ -279,5 +296,6 @@ export function parseMermaidFlowchart(code: string): GraphData {
     edges,
     subgraphs,
     direction,
+    curveStyle,
   }
 }

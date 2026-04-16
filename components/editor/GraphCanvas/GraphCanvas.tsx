@@ -349,7 +349,7 @@ export default function GraphCanvas({}: GraphCanvasProps) {
 
         {/* Subgraphs */}
         {subgraphs.map(sg => (
-          <Subgraph key={sg.id} subgraph={sg} nodes={nodes} />
+          <Subgraph key={sg.id} subgraph={sg} nodes={nodes} viewTransform={viewTransform} />
         ))}
 
         {/* Nodes */}

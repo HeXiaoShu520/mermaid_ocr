@@ -40,6 +40,7 @@ interface GraphEditorState {
   // ─── 选中状态 ───
   selectedNodeIds: Set<string>
   selectedEdgeId: string | null
+  selectedSubgraphId: string | null
 
   // ─── 视图变换 ───
   viewTransform: { x: number; y: number; scale: number }
@@ -80,6 +81,7 @@ interface GraphEditorState {
 
   selectNode: (id: string, multi?: boolean) => void
   selectEdge: (id: string) => void
+  selectSubgraph: (id: string | null) => void
   clearSelection: () => void
 
   setViewTransform: (t: { x: number; y: number; scale: number }) => void
@@ -99,6 +101,8 @@ interface GraphEditorState {
   setCurveStyle: (style: 'basis' | 'linear' | 'step' | 'stepBefore' | 'stepAfter' | 'monotoneX' | 'monotoneY') => void
   setPendingAddShape: (shape: string | null) => void
 
+  moveSubgraph: (subgraphId: string, dx: number, dy: number) => void
+
   pushHistory: (code: string) => void
   undo: () => string | null
   redo: () => string | null
@@ -117,6 +121,7 @@ export const useGraphEditorStore = create<GraphEditorState>((set, get) => ({
   layout: null,
   selectedNodeIds: new Set(),
   selectedEdgeId: null,
+  selectedSubgraphId: null,
   viewTransform: { x: 0, y: 0, scale: 1 },
   connecting: null,
   hoveredNodeId: null,
@@ -181,15 +186,17 @@ export const useGraphEditorStore = create<GraphEditorState>((set, get) => ({
       const next = new Set(selectedNodeIds)
       if (next.has(id)) next.delete(id)
       else next.add(id)
-      set({ selectedNodeIds: next, selectedEdgeId: null })
+      set({ selectedNodeIds: next, selectedEdgeId: null, selectedSubgraphId: null })
     } else {
-      set({ selectedNodeIds: new Set([id]), selectedEdgeId: null })
+      set({ selectedNodeIds: new Set([id]), selectedEdgeId: null, selectedSubgraphId: null })
     }
   },
 
-  selectEdge: (id) => set({ selectedEdgeId: id, selectedNodeIds: new Set() }),
+  selectEdge: (id) => set({ selectedEdgeId: id, selectedNodeIds: new Set(), selectedSubgraphId: null }),
 
-  clearSelection: () => set({ selectedNodeIds: new Set(), selectedEdgeId: null }),
+  selectSubgraph: (id) => set({ selectedSubgraphId: id, selectedNodeIds: new Set(), selectedEdgeId: null }),
+
+  clearSelection: () => set({ selectedNodeIds: new Set(), selectedEdgeId: null, selectedSubgraphId: null }),
 
   // ─── View Actions ───
   setViewTransform: (t) => set({ viewTransform: t }),
@@ -248,6 +255,104 @@ export const useGraphEditorStore = create<GraphEditorState>((set, get) => ({
   setCurveStyle: (curveStyle) => set({ curveStyle }),
   setPendingAddShape: (shape) => set({ pendingAddShape: shape }),
 
+  moveSubgraph: (subgraphId, dx, dy) => {
+    const { nodes, subgraphs } = get()
+    const sg = subgraphs.find(s => s.id === subgraphId)
+    if (!sg) return
+
+    // 计算当前子图的边界框
+    const sgNodes = nodes.filter(n => n.subgraph === subgraphId)
+    if (sgNodes.length === 0) return
+
+    const padding = 20
+    const titleHeight = 30
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    sgNodes.forEach(n => {
+      minX = Math.min(minX, n.x)
+      minY = Math.min(minY, n.y)
+      maxX = Math.max(maxX, n.x + n.width)
+      maxY = Math.max(maxY, n.y + n.height)
+    })
+    const sgBounds = {
+      x: minX - padding + dx,
+      y: minY - padding - titleHeight + dy,
+      width: maxX - minX + padding * 2,
+      height: maxY - minY + padding * 2 + titleHeight,
+    }
+
+    // 碰撞检测：检查是否与其他子图重叠
+    for (const otherSg of subgraphs) {
+      if (otherSg.id === subgraphId) continue
+      const otherNodes = nodes.filter(n => n.subgraph === otherSg.id)
+      if (otherNodes.length === 0) continue
+
+      let oMinX = Infinity, oMinY = Infinity, oMaxX = -Infinity, oMaxY = -Infinity
+      otherNodes.forEach(n => {
+        oMinX = Math.min(oMinX, n.x)
+        oMinY = Math.min(oMinY, n.y)
+        oMaxX = Math.max(oMaxX, n.x + n.width)
+        oMaxY = Math.max(oMaxY, n.y + n.height)
+      })
+      const otherBounds = {
+        x: oMinX - padding,
+        y: oMinY - padding - titleHeight,
+        width: oMaxX - oMinX + padding * 2,
+        height: oMaxY - oMinY + padding * 2 + titleHeight,
+      }
+
+      // AABB 碰撞检测
+      const gap = 10 // 子图之间的最小间距
+      if (
+        sgBounds.x < otherBounds.x + otherBounds.width + gap &&
+        sgBounds.x + sgBounds.width > otherBounds.x - gap &&
+        sgBounds.y < otherBounds.y + otherBounds.height + gap &&
+        sgBounds.y + sgBounds.height > otherBounds.y - gap
+      ) {
+        // 碰撞了，推开另一个子图
+        // 计算推开方向：选择重叠最小的方向
+        const overlapLeft = (sgBounds.x + sgBounds.width + gap) - otherBounds.x
+        const overlapRight = (otherBounds.x + otherBounds.width + gap) - sgBounds.x
+        const overlapTop = (sgBounds.y + sgBounds.height + gap) - otherBounds.y
+        const overlapBottom = (otherBounds.y + otherBounds.height + gap) - sgBounds.y
+
+        const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom)
+        let pushDx = 0, pushDy = 0
+
+        if (minOverlap === overlapLeft) pushDx = overlapLeft
+        else if (minOverlap === overlapRight) pushDx = -overlapRight
+        else if (minOverlap === overlapTop) pushDy = overlapTop
+        else pushDy = -overlapBottom
+
+        // 移动被碰撞的子图的所有节点
+        const updatedNodes = [...nodes]
+        otherNodes.forEach(otherNode => {
+          const idx = updatedNodes.findIndex(n => n.id === otherNode.id)
+          if (idx !== -1) {
+            updatedNodes[idx] = { ...updatedNodes[idx], x: updatedNodes[idx].x + pushDx, y: updatedNodes[idx].y + pushDy }
+          }
+        })
+
+        // 同时移动当前子图的节点
+        sgNodes.forEach(sgNode => {
+          const idx = updatedNodes.findIndex(n => n.id === sgNode.id)
+          if (idx !== -1) {
+            updatedNodes[idx] = { ...updatedNodes[idx], x: updatedNodes[idx].x + dx, y: updatedNodes[idx].y + dy }
+          }
+        })
+
+        set({ nodes: updatedNodes })
+        return
+      }
+    }
+
+    // 无碰撞，直接移动子图内所有节点
+    set({
+      nodes: nodes.map(n =>
+        n.subgraph === subgraphId ? { ...n, x: n.x + dx, y: n.y + dy } : n
+      ),
+    })
+  },
+
   // ─── History Actions ───
   pushHistory: (code) => {
     const { history } = get()
@@ -288,6 +393,7 @@ export const useGraphEditorStore = create<GraphEditorState>((set, get) => ({
       layout,
       selectedNodeIds: new Set(),
       selectedEdgeId: null,
+      selectedSubgraphId: null,
     })
   },
 }))

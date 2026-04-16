@@ -66,7 +66,8 @@ export type NodeShape =
   | "braces"
   | "comment"
   | "odd"
-  | "bang";
+  | "bang"
+  | "text";
 
 // ─── Edge style types ─────────────────────────────────────────────────────────
 export type EdgeStyle = "solid" | "dashed" | "thick";

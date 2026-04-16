@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import mermaid from 'mermaid'
 import { useSvgEditorStore } from '@/lib/svgEditorStore'
+import { useGraphEditorStore } from '@/lib/graphEditorStore'
 import { ZoomIn, ZoomOut, Maximize2 } from 'lucide-react'
 
 interface MermaidPreviewProps {
@@ -20,7 +21,7 @@ export default function MermaidPreview({ code, widthPx }: MermaidPreviewProps) {
 
   const theme = useSvgEditorStore(s => s.theme)
   const look = useSvgEditorStore(s => s.look)
-  const curveStyle = useSvgEditorStore(s => s.curveStyle)
+  const curveStyle = useGraphEditorStore(s => s.curveStyle)
 
   // 渲染 Mermaid SVG
   useEffect(() => {

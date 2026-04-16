@@ -57,7 +57,7 @@ export default function VisualEditor() {
   const loadToEditor = useStore(s => s.loadToEditor)
   const syncToCode = useStore(s => s.syncToCode)
 
-  const { nodes, edges, subgraphs, initGraph, direction, curveStyle } = useGraphEditorStore()
+  const { nodes, edges, subgraphs, initGraph, direction, curveStyle, setDirection, setCurveStyle } = useGraphEditorStore()
 
   // 专用编辑器的 state
   const [pieDraft, setPieDraft] = useState<{ title: string; data: PieData[] } | null>(null)
@@ -86,6 +86,8 @@ export default function VisualEditor() {
       try {
         const result = importFromCode(tempMermaid, direction)
         initGraph(result.nodes, result.edges, result.layout, result.subgraphs)
+        if (result.direction) setDirection(result.direction)
+        if (result.curveStyle) setCurveStyle(result.curveStyle)
       } catch (err) {
         console.error('[VisualEditor] 加载失败:', err)
       }

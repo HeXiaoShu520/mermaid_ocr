@@ -12,6 +12,8 @@ export interface ImportResult {
   edges: any[]
   subgraphs: any[]
   layout: LayoutMetadata | null
+  direction?: 'TB' | 'LR' | 'BT' | 'RL'
+  curveStyle?: 'basis' | 'linear' | 'step' | 'stepBefore' | 'stepAfter' | 'monotoneX' | 'monotoneY'
 }
 
 /**
@@ -27,6 +29,8 @@ export function importFromCode(code: string, direction?: 'TB' | 'LR' | 'BT' | 'R
     edges: layoutResult.edges,
     subgraphs: graph.subgraphs,
     layout: null,
+    direction: layoutDirection,
+    curveStyle: graph.curveStyle,
   }
 }
 
