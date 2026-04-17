@@ -198,6 +198,14 @@ export default function GraphNode({
 
   const showHandles = (isSelected || isHovered) && node.shape !== 'text' && node.shape !== 'comment'
 
+  // 节点内容：标签 + 淡色 ID（始终显示）
+  const nodeContent = (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, pointerEvents: 'none' }}>
+      <span>{node.label}</span>
+      <span style={{ fontSize: 9, color: 'rgba(0,0,0,0.2)', lineHeight: 1 }}>{node.id}</span>
+    </div>
+  )
+
   // 根据形状决定渲染方式
   const renderNodeShape = () => {
     const fillColor = node.fillColor || '#fff'
@@ -247,7 +255,7 @@ export default function GraphNode({
             fontSize: 16,
             fontWeight: 500,
           }}>
-            {node.label}
+            {nodeContent}
           </div>
         )
       case 'text':
@@ -258,15 +266,15 @@ export default function GraphNode({
             background: 'transparent',
             boxShadow: 'none',
           }}>
-            {node.label}
+            {nodeContent}
           </div>
         )
       case 'rounded':
-        return <div style={{ ...baseStyle, borderRadius: 20 }}>{node.label}</div>
+        return <div style={{ ...baseStyle, borderRadius: 20 }}>{nodeContent}</div>
       case 'stadium':
-        return <div style={{ ...baseStyle, borderRadius: node.height / 2 }}>{node.label}</div>
+        return <div style={{ ...baseStyle, borderRadius: node.height / 2 }}>{nodeContent}</div>
       case 'circle':
-        return <div style={{ ...baseStyle, borderRadius: '50%' }}>{node.label}</div>
+        return <div style={{ ...baseStyle, borderRadius: '50%' }}>{nodeContent}</div>
       case 'diamond':
         return (
           <div style={{ ...baseStyle, border: 'none', background: 'transparent', boxShadow: 'none' }}>
@@ -278,7 +286,7 @@ export default function GraphNode({
                 strokeWidth={strokeWidth}
               />
             </svg>
-            <span style={textStyle}>{node.label}</span>
+            <span style={textStyle}>{nodeContent}</span>
           </div>
         )
       case 'hexagon':
@@ -292,7 +300,7 @@ export default function GraphNode({
                 strokeWidth={strokeWidth}
               />
             </svg>
-            <span style={textStyle}>{node.label}</span>
+            <span style={textStyle}>{nodeContent}</span>
           </div>
         )
       case 'parallelogram':
@@ -306,7 +314,7 @@ export default function GraphNode({
                 strokeWidth={strokeWidth}
               />
             </svg>
-            <span style={textStyle}>{node.label}</span>
+            <span style={textStyle}>{nodeContent}</span>
           </div>
         )
       case 'trapezoid':
@@ -320,9 +328,10 @@ export default function GraphNode({
                 strokeWidth={strokeWidth}
               />
             </svg>
-            <span style={textStyle}>{node.label}</span>
+            <span style={textStyle}>{nodeContent}</span>
           </div>
         )
+      case 'cylinder':
       case 'cylindrical':
         return (
           <div style={{ ...baseStyle, border: 'none', background: 'transparent', boxShadow: 'none' }}>
@@ -370,7 +379,7 @@ export default function GraphNode({
                 strokeWidth={isSelected ? 2 : 1}
               />
             </svg>
-            <span style={textStyle}>{node.label}</span>
+            <span style={textStyle}>{nodeContent}</span>
           </div>
         )
       case 'subroutine':
@@ -378,7 +387,7 @@ export default function GraphNode({
           <div style={{ ...baseStyle, borderRadius: 4 }}>
             <div style={{ position: 'absolute', left: 8, top: 0, bottom: 0, borderLeft: isSelected ? '2px solid #3b82f6' : '1px solid #333' }} />
             <div style={{ position: 'absolute', right: 8, top: 0, bottom: 0, borderRight: isSelected ? '2px solid #3b82f6' : '1px solid #333' }} />
-            {node.label}
+            {nodeContent}
           </div>
         )
       case 'triangle':
@@ -392,7 +401,7 @@ export default function GraphNode({
                 strokeWidth={strokeWidth}
               />
             </svg>
-            <span style={textStyle}>{node.label}</span>
+            <span style={textStyle}>{nodeContent}</span>
           </div>
         )
       case 'parallelogram-alt':
@@ -406,7 +415,7 @@ export default function GraphNode({
                 strokeWidth={strokeWidth}
               />
             </svg>
-            <span style={textStyle}>{node.label}</span>
+            <span style={textStyle}>{nodeContent}</span>
           </div>
         )
       case 'trapezoid-alt':
@@ -420,7 +429,7 @@ export default function GraphNode({
                 strokeWidth={strokeWidth}
               />
             </svg>
-            <span style={textStyle}>{node.label}</span>
+            <span style={textStyle}>{nodeContent}</span>
           </div>
         )
 
@@ -441,7 +450,7 @@ export default function GraphNode({
                 strokeWidth={strokeWidth}
               />
             </svg>
-            <span style={textStyle}>{node.label}</span>
+            <span style={textStyle}>{nodeContent}</span>
           </div>
         )
 
@@ -466,7 +475,7 @@ export default function GraphNode({
             <svg width={w} height={h} style={{ position: 'absolute', left: 0, top: 0 }} overflow="visible">
               <path d={d} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
             </svg>
-            <span style={textStyle}>{node.label}</span>
+            <span style={textStyle}>{nodeContent}</span>
           </div>
         )
       }
@@ -481,7 +490,7 @@ export default function GraphNode({
                 strokeWidth={strokeWidth}
               />
             </svg>
-            <span style={textStyle}>{node.label}</span>
+            <span style={textStyle}>{nodeContent}</span>
           </div>
         )
 
@@ -494,7 +503,7 @@ export default function GraphNode({
               <line x1={node.width * 0.15} y1={node.height} x2={node.width * 0.85} y2={node.height} stroke={strokeColor} strokeWidth={strokeWidth} />
               <ellipse cx={node.width * 0.85} cy={node.height / 2} rx={node.width * 0.15} ry={node.height / 2} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
             </svg>
-            <span style={textStyle}>{node.label}</span>
+            <span style={textStyle}>{nodeContent}</span>
           </div>
         )
       case 'lin-cyl':
@@ -508,7 +517,7 @@ export default function GraphNode({
               <ellipse cx={node.width / 2} cy={node.height * 0.85} rx={node.width / 2} ry={node.height * 0.15} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
               <ellipse cx={node.width / 2} cy={node.height * 0.4} rx={node.width / 2} ry={node.height * 0.1} fill="none" stroke={strokeColor} strokeWidth={1} />
             </svg>
-            <span style={textStyle}>{node.label}</span>
+            <span style={textStyle}>{nodeContent}</span>
           </div>
         )
       case 'tag-rect':
@@ -518,7 +527,7 @@ export default function GraphNode({
               <rect x={0} y={0} width={node.width} height={node.height} rx={4} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
               <polygon points={`${node.width * 0.75},0 ${node.width},0 ${node.width},${node.height * 0.4}`} fill="none" stroke={strokeColor} strokeWidth={1} />
             </svg>
-            <span style={textStyle}>{node.label}</span>
+            <span style={textStyle}>{nodeContent}</span>
           </div>
         )
       case 'sl-rect':
@@ -527,7 +536,7 @@ export default function GraphNode({
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
               <polygon points={`0,${node.height * 0.3} ${node.width},0 ${node.width},${node.height} 0,${node.height}`} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
             </svg>
-            <span style={textStyle}>{node.label}</span>
+            <span style={textStyle}>{nodeContent}</span>
           </div>
         )
       case 'bow-rect':
@@ -536,7 +545,7 @@ export default function GraphNode({
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
               <path d={`M${node.width * 0.2},0 L${node.width * 0.8},0 C${node.width * 0.9},0 ${node.width * 0.9},${node.height / 2} ${node.width * 0.8},${node.height / 2} C${node.width * 0.9},${node.height / 2} ${node.width * 0.9},${node.height} ${node.width * 0.8},${node.height} L${node.width * 0.2},${node.height} C${node.width * 0.1},${node.height} ${node.width * 0.1},${node.height / 2} ${node.width * 0.2},${node.height / 2} C${node.width * 0.1},${node.height / 2} ${node.width * 0.1},0 ${node.width * 0.2},0`} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
             </svg>
-            <span style={textStyle}>{node.label}</span>
+            <span style={textStyle}>{nodeContent}</span>
           </div>
         )
       case 'notch-pent':
@@ -545,7 +554,7 @@ export default function GraphNode({
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
               <polygon points={`${node.width * 0.2},0 ${node.width * 0.8},0 ${node.width},${node.height * 0.3} ${node.width},${node.height} 0,${node.height} 0,${node.height * 0.3}`} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
             </svg>
-            <span style={textStyle}>{node.label}</span>
+            <span style={textStyle}>{nodeContent}</span>
           </div>
         )
       case 'curv-trap':
@@ -554,7 +563,7 @@ export default function GraphNode({
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
               <path d={`M${node.width * 0.2},0 L${node.width * 0.8},0 C${node.width * 0.9},${node.height / 2} ${node.width * 0.9},${node.height / 2} ${node.width * 0.8},${node.height} L${node.width * 0.2},${node.height} C${node.width * 0.1},${node.height / 2} ${node.width * 0.1},${node.height / 2} ${node.width * 0.2},0`} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
             </svg>
-            <span style={textStyle}>{node.label}</span>
+            <span style={textStyle}>{nodeContent}</span>
           </div>
         )
       case 'delay':
@@ -563,7 +572,7 @@ export default function GraphNode({
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
               <path d={`M0,0 L${node.width * 0.75},0 C${node.width * 0.9},0 ${node.width * 0.9},${node.height} ${node.width * 0.75},${node.height} L0,${node.height} Z`} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
             </svg>
-            <span style={textStyle}>{node.label}</span>
+            <span style={textStyle}>{nodeContent}</span>
           </div>
         )
       case 'bolt':
@@ -572,7 +581,7 @@ export default function GraphNode({
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
               <polygon points={`${node.width * 0.55},0 ${node.width * 0.3},${node.height * 0.45} ${node.width * 0.5},${node.height * 0.45} ${node.width * 0.45},${node.height} ${node.width * 0.7},${node.height * 0.55} ${node.width * 0.5},${node.height * 0.55}`} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
             </svg>
-            <span style={textStyle}>{node.label}</span>
+            <span style={textStyle}>{nodeContent}</span>
           </div>
         )
       case 'doc':
@@ -581,7 +590,7 @@ export default function GraphNode({
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
               <path d={`M0,0 L${node.width},0 L${node.width},${node.height * 0.8} C${node.width * 0.7},${node.height * 0.7} ${node.width * 0.3},${node.height * 0.9} 0,${node.height * 0.8} Z`} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
             </svg>
-            <span style={textStyle}>{node.label}</span>
+            <span style={textStyle}>{nodeContent}</span>
           </div>
         )
       case 'lin-doc':
@@ -591,7 +600,7 @@ export default function GraphNode({
               <path d={`M0,0 L${node.width},0 L${node.width},${node.height * 0.8} C${node.width * 0.7},${node.height * 0.7} ${node.width * 0.3},${node.height * 0.9} 0,${node.height * 0.8} Z`} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
               <line x1={node.width * 0.2} y1={0} x2={node.width * 0.2} y2={node.height * 0.75} stroke={strokeColor} strokeWidth={1} />
             </svg>
-            <span style={textStyle}>{node.label}</span>
+            <span style={textStyle}>{nodeContent}</span>
           </div>
         )
       case 'st-doc':
@@ -601,7 +610,7 @@ export default function GraphNode({
               <path d={`M${node.width * 0.1},${node.height * 0.15} L${node.width * 0.9},${node.height * 0.15} L${node.width * 0.9},${node.height * 0.85} C${node.width * 0.65},${node.height * 0.8} ${node.width * 0.35},${node.height * 0.9} ${node.width * 0.1},${node.height * 0.85} Z`} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
               <path d={`M0,0 L${node.width * 0.8},0 L${node.width * 0.8},${node.height * 0.7} C${node.width * 0.55},${node.height * 0.65} ${node.width * 0.25},${node.height * 0.75} 0,${node.height * 0.7} Z`} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
             </svg>
-            <span style={textStyle}>{node.label}</span>
+            <span style={textStyle}>{nodeContent}</span>
           </div>
         )
       case 'tag-doc':
@@ -611,7 +620,7 @@ export default function GraphNode({
               <path d={`M0,0 L${node.width},0 L${node.width},${node.height * 0.8} C${node.width * 0.7},${node.height * 0.7} ${node.width * 0.3},${node.height * 0.9} 0,${node.height * 0.8} Z`} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
               <polygon points={`${node.width * 0.75},0 ${node.width},0 ${node.width},${node.height * 0.3}`} fill="none" stroke={strokeColor} strokeWidth={1} />
             </svg>
-            <span style={textStyle}>{node.label}</span>
+            <span style={textStyle}>{nodeContent}</span>
           </div>
         )
       case 'fork':
@@ -620,7 +629,7 @@ export default function GraphNode({
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
               <rect x={0} y={node.height * 0.3} width={node.width} height={node.height * 0.4} fill={strokeColor} stroke={strokeColor} strokeWidth={strokeWidth} />
             </svg>
-            <span style={{ ...textStyle, color: '#fff' }}>{node.label}</span>
+            <span style={{ ...textStyle, color: '#fff' }}>{nodeContent}</span>
           </div>
         )
       case 'brace':
@@ -629,7 +638,7 @@ export default function GraphNode({
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
               <path d={`M${node.width * 0.8},0 C${node.width * 0.5},0 ${node.width * 0.5},${node.height * 0.4} ${node.width * 0.2},${node.height / 2} C${node.width * 0.5},${node.height * 0.6} ${node.width * 0.5},${node.height} ${node.width * 0.8},${node.height}`} fill="none" stroke={strokeColor} strokeWidth={strokeWidth} />
             </svg>
-            <span style={textStyle}>{node.label}</span>
+            <span style={textStyle}>{nodeContent}</span>
           </div>
         )
       case 'brace-r':
@@ -638,7 +647,7 @@ export default function GraphNode({
             <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
               <path d={`M${node.width * 0.2},0 C${node.width * 0.5},0 ${node.width * 0.5},${node.height * 0.4} ${node.width * 0.8},${node.height / 2} C${node.width * 0.5},${node.height * 0.6} ${node.width * 0.5},${node.height} ${node.width * 0.2},${node.height}`} fill="none" stroke={strokeColor} strokeWidth={strokeWidth} />
             </svg>
-            <span style={textStyle}>{node.label}</span>
+            <span style={textStyle}>{nodeContent}</span>
           </div>
         )
       case 'braces':
@@ -648,7 +657,7 @@ export default function GraphNode({
               <path d={`M${node.width * 0.35},0 C${node.width * 0.2},0 ${node.width * 0.2},${node.height * 0.4} ${node.width * 0.05},${node.height / 2} C${node.width * 0.2},${node.height * 0.6} ${node.width * 0.2},${node.height} ${node.width * 0.35},${node.height}`} fill="none" stroke={strokeColor} strokeWidth={strokeWidth} />
               <path d={`M${node.width * 0.65},0 C${node.width * 0.8},0 ${node.width * 0.8},${node.height * 0.4} ${node.width * 0.95},${node.height / 2} C${node.width * 0.8},${node.height * 0.6} ${node.width * 0.8},${node.height} ${node.width * 0.65},${node.height}`} fill="none" stroke={strokeColor} strokeWidth={strokeWidth} />
             </svg>
-            <span style={textStyle}>{node.label}</span>
+            <span style={textStyle}>{nodeContent}</span>
           </div>
         )
       case 'win-pane':
@@ -659,12 +668,16 @@ export default function GraphNode({
               <line x1={node.width / 2} y1={0} x2={node.width / 2} y2={node.height} stroke={strokeColor} strokeWidth={1} />
               <line x1={0} y1={node.height / 2} x2={node.width} y2={node.height / 2} stroke={strokeColor} strokeWidth={1} />
             </svg>
-            <span style={textStyle}>{node.label}</span>
+            <span style={textStyle}>{nodeContent}</span>
           </div>
+        )
+      case 'ellipse':
+        return (
+          <div style={{ ...baseStyle, borderRadius: '50%' }}>{nodeContent}</div>
         )
       case 'rectangle':
       default:
-        return <div style={{ ...baseStyle, borderRadius: 4 }}>{node.label}</div>
+        return <div style={{ ...baseStyle, borderRadius: 4 }}>{nodeContent}</div>
     }
   }
 

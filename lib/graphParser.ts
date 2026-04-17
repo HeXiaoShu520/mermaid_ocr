@@ -7,7 +7,7 @@ export interface GraphNode {
   id: string
   label: string
   shape?:
-    | 'rectangle' | 'rounded' | 'stadium' | 'subroutine' | 'cylindrical' | 'circle'
+    | 'rectangle' | 'rounded' | 'stadium' | 'subroutine' | 'cylinder' | 'cylindrical' | 'circle'
     | 'diamond' | 'hexagon' | 'parallelogram' | 'parallelogram-alt' | 'trapezoid' | 'trapezoid-alt'
     | 'triangle' | 'triangle-down' | 'triangle-left' | 'triangle-right'
     | 'pentagon' | 'octagon' | 'star' | 'cross' | 'plus'
@@ -173,6 +173,28 @@ function upsertNode(
 }
 
 /**
+ * 根据箭头符号判断边样式
+ */
+function classifyEdgeStyle(arrow: string): 'solid' | 'dotted' | 'thick' {
+  if (/=/.test(arrow)) return 'thick'
+  if (/\./.test(arrow)) return 'dotted'
+  return 'solid'
+}
+
+/**
+ * 根据箭头符号判断箭头类型
+ */
+function classifyArrowType(arrow: string): 'arrow' | 'none' | 'circle' | 'cross' {
+  if (/x$/.test(arrow)) return 'cross'
+  if (/o$/.test(arrow)) return 'circle'
+  if (/>$/.test(arrow)) return 'arrow'
+  if (/~$/.test(arrow)) return 'none'
+  // --- 或 === 无箭头
+  if (/^-+-$/.test(arrow) || /^=+=/.test(arrow)) return 'none'
+  return 'arrow'
+}
+
+/**
  * 解析 Mermaid flowchart 代码
  */
 export function parseMermaidFlowchart(code: string): GraphData {
@@ -231,9 +253,10 @@ export function parseMermaidFlowchart(code: string): GraphData {
     }
 
     // 边：支持多种箭头和标签
-    // A -->|label| B, A ---|label| B, A -.->|label| B, A ==>|label| B
-    // A --> B, A --- B, A -.-> B, A ==> B
-    const edgeWithLabelMatch = line.match(/^(.+?)\s*(-->|---|\.\.->|==>)\s*\|([^\|]+)\|\s*(.+)$/)
+    // 用一个通用正则匹配所有 Mermaid 边语法
+    const ARROW_RE = /<?-+\.+-+>?|-?\.+->|<?-+>|<?>?=+>?|<?>?-+-<?|=+=|~+|-+x|-+o/
+    const edgeWithLabelRe = new RegExp(`^(.+?)\\s*(${ARROW_RE.source})\\s*\\|([^\\|]+)\\|\\s*(.+)$`)
+    const edgeWithLabelMatch = line.match(edgeWithLabelRe)
     if (edgeWithLabelMatch) {
       const [, fromPart, arrow, label, toPart] = edgeWithLabelMatch
 
@@ -247,19 +270,22 @@ export function parseMermaidFlowchart(code: string): GraphData {
       const toId = toNode ? toNode.id : toPart.trim()
       upsertNode(nodes, subgraphs, toId, toNode ? { ...toNode } : { id: toId, label: toId }, currentSubgraph)
 
-      const edgeStyle = arrow === '==>' ? 'thick' : arrow === '-..->' || arrow === '.-.->' ? 'dotted' : 'solid'
+      const edgeStyle = classifyEdgeStyle(arrow)
+      const arrowType = classifyArrowType(arrow)
       edges.push({
         id: `${fromId}-${toId}-${edges.length}`,
         source: fromId,
         target: toId,
         label: label.trim(),
         style: edgeStyle,
+        arrowType,
       })
       continue
     }
 
     // 边：无标签
-    const edgeMatch = line.match(/^(.+?)\s*(-->|---|\.\.->|==>)\s*(.+)$/)
+    const edgeRe = new RegExp(`^(.+?)\\s*(${ARROW_RE.source})\\s*(.+)$`)
+    const edgeMatch = line.match(edgeRe)
     if (edgeMatch) {
       const [, fromPart, arrow, toPart] = edgeMatch
 
@@ -273,12 +299,14 @@ export function parseMermaidFlowchart(code: string): GraphData {
       const toId = toNode ? toNode.id : toPart.trim()
       upsertNode(nodes, subgraphs, toId, toNode ? { ...toNode } : { id: toId, label: toId }, currentSubgraph)
 
-      const edgeStyle = arrow === '==>' ? 'thick' : arrow === '-..->' || arrow === '.-.->' ? 'dotted' : 'solid'
+      const edgeStyle = classifyEdgeStyle(arrow)
+      const arrowType = classifyArrowType(arrow)
       edges.push({
         id: `${fromId}-${toId}-${edges.length}`,
         source: fromId,
         target: toId,
         style: edgeStyle,
+        arrowType,
       })
       continue
     }

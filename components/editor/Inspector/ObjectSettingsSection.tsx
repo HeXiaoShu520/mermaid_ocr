@@ -85,7 +85,7 @@ function ColorSwatch({
 }
 
 export function ObjectSettingsSection() {
-  const { nodes, edges, selectedNodeIds, selectedEdgeId, updateNode, updateEdge } = useGraphEditorStore()
+  const { nodes, edges, selectedNodeIds, selectedEdgeId, updateNode, renameNode, updateEdge } = useGraphEditorStore()
 
   const selectedNodes = nodes.filter(n => selectedNodeIds.has(n.id))
   const selectedEdges = edges.filter(e => e.id === selectedEdgeId)
@@ -115,6 +115,61 @@ export function ObjectSettingsSection() {
               ? `节点：${selectedNodes[0].shape || 'rectangle'}`
               : `已选择 ${selectedNodes.length} 个节点`}
           </div>
+
+          {/* 标识和标签编辑 */}
+          {selectedNodes.length === 1 && (
+            <>
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 4 }}>唯一标识 (ID)</div>
+                <input
+                  type="text"
+                  defaultValue={selectedNodes[0].id}
+                  key={selectedNodes[0].id + '-id'}
+                  onBlur={(e) => {
+                    const newId = e.target.value.trim()
+                    if (newId && newId !== selectedNodes[0].id) {
+                      renameNode(selectedNodes[0].id, newId)
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    e.stopPropagation()
+                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                  }}
+                  style={{
+                    width: '100%',
+                    background: '#f9fafb',
+                    border: PANEL_BORDER,
+                    borderRadius: 6,
+                    padding: '6px 8px',
+                    fontSize: 12,
+                    color: '#6b7280',
+                    outline: 'none',
+                    fontFamily: 'monospace',
+                  }}
+                />
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 4 }}>内容 (Label)</div>
+                <input
+                  type="text"
+                  value={selectedNodes[0].label}
+                  onChange={(e) => updateNode(selectedNodes[0].id, { label: e.target.value })}
+                  onKeyDown={(e) => e.stopPropagation()}
+                  style={{
+                    width: '100%',
+                    background: '#fff',
+                    border: PANEL_BORDER,
+                    borderRadius: 6,
+                    padding: '6px 8px',
+                    fontSize: 12,
+                    color: '#374151',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+            </>
+          )}
+
           <div style={{ display: 'flex', gap: 14, marginBottom: 12 }}>
             <ColorSwatch
               key={selectedNodes.map(n => n.id).join('-') + '-fill'}

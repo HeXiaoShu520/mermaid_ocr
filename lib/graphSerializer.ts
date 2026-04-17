@@ -21,6 +21,7 @@ function serializeNodeShape(node: NodeState): string {
       return `${node.id}([${label}])`
     case 'subroutine':
       return `${node.id}[[${label}]]`
+    case 'cylinder':
     case 'cylindrical':
       return `${node.id}[(${label})]`
     case 'circle':
@@ -88,6 +89,9 @@ function serializeNodeShape(node: NodeState): string {
     case 'text':
       return `${node.id}@{ shape: text, label: "${label}" }`
 
+    case 'comment':
+      return `${node.id}@{ shape: text, label: "${label}" }`
+
     // 无对应语法，降级为矩形
     default:
       return `${node.id}[${label}]`
@@ -148,7 +152,15 @@ export function serializeToMermaid(
 
   // 边定义
   edges.forEach(edge => {
-    const arrow = edge.style === 'thick' ? '==>' : edge.style === 'dotted' ? '-..->' : '-->'
+    let arrow: string
+    const noArrow = edge.arrowType === 'none'
+    if (edge.style === 'thick') {
+      arrow = noArrow ? '===' : '==>'
+    } else if (edge.style === 'dotted') {
+      arrow = noArrow ? '-.-' : '-..->'
+    } else {
+      arrow = noArrow ? '---' : '-->'
+    }
     if (edge.label) {
       lines.push(`  ${edge.source} ${arrow}|${edge.label}| ${edge.target}`)
     } else {

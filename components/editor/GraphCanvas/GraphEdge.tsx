@@ -6,6 +6,8 @@ import { useGraphEditorStore, type EdgeState, type NodeState } from '@/lib/graph
 interface GraphEdgeProps {
   edge: EdgeState
   nodes: NodeState[]
+  parallelIndex?: number
+  parallelCount?: number
 }
 
 type EdgeSide = 'top' | 'bottom' | 'left' | 'right'
@@ -65,7 +67,7 @@ function buildPathD(
     }
   } else {
     // 贝塞尔曲线（basis / monotone 等）
-    const straightLen = 30 // 终点直线段长度，确保箭头方向正确
+    const straightLen = 15 // 终点直线段长度，确保箭头方向正确
 
     if (endIsVertical) {
       // 终点是垂直边（top/bottom），箭头必须垂直
@@ -136,8 +138,8 @@ function getPathLength(pathD: string): number {
   }
 }
 
-export default function GraphEdge({ edge, nodes }: GraphEdgeProps) {
-  const { selectedEdgeId, selectEdge, setContextMenu, setEditingEdge, curveStyle } = useGraphEditorStore()
+export default function GraphEdge({ edge, nodes, parallelIndex = 0, parallelCount = 1 }: GraphEdgeProps) {
+  const { selectedEdgeId, selectEdge, setContextMenu, setEditingEdge, curveStyle, direction } = useGraphEditorStore()
 
   const fromNode = nodes.find(n => n.id === edge.source)
   const toNode = nodes.find(n => n.id === edge.target)
@@ -170,10 +172,12 @@ export default function GraphEdge({ edge, nodes }: GraphEdgeProps) {
     ]
 
     // 计算所有16种组合的距离，选择最短的
-    // 上下分布时，终点在上下边的优先级提高（距离x0.8）
+    // 1. 相对位置：上下分布时 top/bottom ×0.8，左右分布时 left/right ×0.8
+    // 2. 布局方向：终点边与 mermaid direction 一致时再 ×0.8
     const absDy = Math.abs(toCenterY - fromCenterY)
     const absDx = Math.abs(toCenterX - fromCenterX)
     const isVerticalLayout = absDy > absDx
+    const isVerticalDirection = direction === 'TB' || direction === 'BT'
 
     let minDist = Infinity
     let bestStart = fromPoints[0]
@@ -183,14 +187,13 @@ export default function GraphEdge({ edge, nodes }: GraphEdgeProps) {
       for (const end of toPoints) {
         let dist = Math.hypot(end.x - start.x, end.y - start.y)
 
-        // 上下分布时，终点在上下边的距离打折
-        if (isVerticalLayout && (end.side === 'top' || end.side === 'bottom')) {
-          dist *= 0.8
-        }
-        // 左右分布时，终点在左右边的距离打折
-        if (!isVerticalLayout && (end.side === 'left' || end.side === 'right')) {
-          dist *= 0.8
-        }
+        const endIsVert = end.side === 'top' || end.side === 'bottom'
+        // 相对位置打折
+        if (isVerticalLayout && endIsVert) dist *= 0.8
+        if (!isVerticalLayout && !endIsVert) dist *= 0.8
+        // 布局方向打折
+        if (isVerticalDirection && endIsVert) dist *= 0.8
+        if (!isVerticalDirection && !endIsVert) dist *= 0.8
 
         if (dist < minDist) {
           minDist = dist
@@ -200,8 +203,20 @@ export default function GraphEdge({ edge, nodes }: GraphEdgeProps) {
       }
     }
 
-    return buildPathD(bestStart.x, bestStart.y, bestEnd.x, bestEnd.y, curveStyle, bestStart.side, bestEnd.side)
-  }, [fromNode, toNode, curveStyle])
+    // 平行边偏移：同一对节点间多条边时，沿连接点的垂直方向偏移
+    let sx = bestStart.x, sy = bestStart.y, ex = bestEnd.x, ey = bestEnd.y
+    if (parallelCount > 1) {
+      const spacing = 15 // 每条边之间的间距
+      const offset = (parallelIndex - (parallelCount - 1) / 2) * spacing
+      const startIsVert = bestStart.side === 'top' || bestStart.side === 'bottom'
+      const endIsVert = bestEnd.side === 'top' || bestEnd.side === 'bottom'
+      // 垂直边（top/bottom）沿 X 偏移，水平边（left/right）沿 Y 偏移
+      if (startIsVert) { sx += offset } else { sy += offset }
+      if (endIsVert) { ex += offset } else { ey += offset }
+    }
+
+    return buildPathD(sx, sy, ex, ey, curveStyle, bestStart.side, bestEnd.side)
+  }, [fromNode, toNode, curveStyle, parallelIndex, parallelCount])
 
   // ─── 计算曲线真实中点 ───
   const pathRef = useRef<SVGPathElement>(null)

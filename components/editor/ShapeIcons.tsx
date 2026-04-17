@@ -70,7 +70,7 @@ export function ShapeIcon({ shape, stroke = '#6b7280', fill = 'white' }: { shape
     case 'tag-doc':
       return <svg viewBox="0 0 24 18" className="w-6 h-4"><path d="M2,2 L22,2 L22,14 C16,12 8,16 2,14 Z" fill={fill} stroke={stroke} strokeWidth={sw} /><polygon points="18,2 22,2 22,6" fill="none" stroke={stroke} strokeWidth={0.8} /></svg>
     case 'flag':
-      return <svg viewBox="0 0 24 16" className="w-6 h-4"><polygon points="1,2 20,2 23,8 20,14 1,14" fill={fill} stroke={stroke} strokeWidth={sw} /></svg>
+      return <svg viewBox="0 0 24 16" className="w-6 h-4"><path d="M1,2 C7,0 11,4 17,2 L23,2 L23,14 C17,16 13,12 7,14 L1,14 Z" fill={fill} stroke={stroke} strokeWidth={sw} /></svg>
     case 'bow-rect':
       return <svg viewBox="0 0 24 16" className="w-6 h-4"><path d="M4,2 L20,2 C22,2 22,8 20,8 C22,8 22,14 20,14 L4,14 C2,14 2,8 4,8 C2,8 2,2 4,2" fill={fill} stroke={stroke} strokeWidth={sw} /></svg>
     case 'delay':

@@ -125,23 +125,33 @@ export default function MermaidPreview({ code, widthPx }: MermaidPreviewProps) {
     if (!svgEl) return
 
     try {
-      const canvas = document.createElement('canvas')
+      const cloned = svgEl.cloneNode(true) as SVGSVGElement
+      // 移除外部引用，内联所有样式
+      cloned.querySelectorAll('foreignObject').forEach(el => el.remove())
+      cloned.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+
       const bbox = svgEl.getBBox()
-      canvas.width = bbox.width
-      canvas.height = bbox.height
+      const width = Math.ceil(bbox.width + bbox.x * 2) || svgEl.clientWidth || 800
+      const height = Math.ceil(bbox.height + bbox.y * 2) || svgEl.clientHeight || 600
+      cloned.setAttribute('width', String(width))
+      cloned.setAttribute('height', String(height))
+
+      const svgData = new XMLSerializer().serializeToString(cloned)
+      // 使用 data URL 而非 blob URL，避免 tainted canvas
+      const dataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgData)
+
+      const canvas = document.createElement('canvas')
+      const scale = 2 // 2x 清晰度
+      canvas.width = width * scale
+      canvas.height = height * scale
       const ctx = canvas.getContext('2d')
       if (!ctx) return
 
-      const svgData = new XMLSerializer().serializeToString(svgEl)
       const img = new Image()
-      const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' })
-      const url = URL.createObjectURL(blob)
-
       img.onload = () => {
         ctx.fillStyle = 'white'
         ctx.fillRect(0, 0, canvas.width, canvas.height)
-        ctx.drawImage(img, 0, 0)
-        URL.revokeObjectURL(url)
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
 
         canvas.toBlob((blob) => {
           if (!blob) return
@@ -153,7 +163,7 @@ export default function MermaidPreview({ code, widthPx }: MermaidPreviewProps) {
         })
       }
 
-      img.src = url
+      img.src = dataUrl
     } catch (err) {
       console.error('导出 PNG 失败:', err)
     }
@@ -197,9 +207,30 @@ export default function MermaidPreview({ code, widthPx }: MermaidPreviewProps) {
     return (
       <div
         style={{ width: widthPx }}
-        className="relative h-full flex items-center justify-center bg-gray-50 text-gray-400 border-r"
+        className="relative h-full flex flex-col bg-white border-r"
       >
-        代码预览区（只读）
+        <div className="flex items-center gap-2 px-3 py-2.5 border-b bg-gray-50">
+          <div className="text-xs font-semibold text-gray-700">渲染区</div>
+          <button
+            onClick={handleExportPNG}
+            className="px-4 py-2 bg-purple-50 border border-purple-300 text-purple-700 rounded text-sm hover:bg-purple-100 transition-colors"
+            title="导出为 PNG"
+          >
+            导出 PNG
+          </button>
+          <button
+            onClick={handleExportSVG}
+            className="px-4 py-2 bg-indigo-50 border border-indigo-300 text-indigo-700 rounded text-sm hover:bg-indigo-100 transition-colors"
+            title="导出为 SVG"
+          >
+            导出 SVG
+          </button>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-2">
+          <div style={{ fontSize: 48 }}>🖼️</div>
+          <div className="text-sm">渲染区</div>
+          <div className="text-xs text-gray-300">编辑代码后自动渲染</div>
+        </div>
       </div>
     )
   }

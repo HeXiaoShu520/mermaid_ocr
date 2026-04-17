@@ -60,7 +60,7 @@ function buildPathD(
     }
   } else {
     // 贝塞尔曲线（basis / monotone 等）
-    const straightLen = 30 // 终点直线段长度，确保箭头方向正确
+    const straightLen = 15 // 终点直线段长度，确保箭头方向正确
 
     if (endIsVertical) {
       // 终点是垂直边（top/bottom），箭头必须垂直
@@ -128,7 +128,7 @@ function getPathLength(pathD: string): number {
 }
 
 export default function EdgeEditor() {
-  const { editingEdgeId, edges, nodes, updateEdge, setEditingEdge, curveStyle } = useGraphEditorStore()
+  const { editingEdgeId, edges, nodes, updateEdge, setEditingEdge, curveStyle, direction } = useGraphEditorStore()
   const [text, setText] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -159,10 +159,10 @@ export default function EdgeEditor() {
     }
   }, [handleSave, setEditingEdge])
 
-  if (!edge || !sourceNode || !targetNode) return null
-
   // ─── 计算路径（与 GraphEdge 相同的逻辑） ───
-  const { pathD } = useMemo(() => {
+  const pathData = useMemo(() => {
+    if (!sourceNode || !targetNode) return null
+
     const fromCenterX = sourceNode.x + sourceNode.width / 2
     const fromCenterY = sourceNode.y + sourceNode.height / 2
     const toCenterX = targetNode.x + targetNode.width / 2
@@ -185,10 +185,12 @@ export default function EdgeEditor() {
     ]
 
     // 计算所有16种组合的距离，选择最短的
-    // 上下分布时，终点在上下边的优先级提高（距离x0.8）
+    // 1. 相对位置：上下分布时 top/bottom ×0.8，左右分布时 left/right ×0.8
+    // 2. 布局方向：终点边与 mermaid direction 一致时再 ×0.8
     const absDy = Math.abs(toCenterY - fromCenterY)
     const absDx = Math.abs(toCenterX - fromCenterX)
     const isVerticalLayout = absDy > absDx
+    const isVerticalDirection = direction === 'TB' || direction === 'BT'
 
     let minDist = Infinity
     let bestStart = fromPoints[0]
@@ -198,14 +200,13 @@ export default function EdgeEditor() {
       for (const end of toPoints) {
         let dist = Math.hypot(end.x - start.x, end.y - start.y)
 
-        // 上下分布时，终点在上下边的距离打折
-        if (isVerticalLayout && (end.side === 'top' || end.side === 'bottom')) {
-          dist *= 0.8
-        }
-        // 左右分布时，终点在左右边的距离打折
-        if (!isVerticalLayout && (end.side === 'left' || end.side === 'right')) {
-          dist *= 0.8
-        }
+        const endIsVert = end.side === 'top' || end.side === 'bottom'
+        // 相对位置打折
+        if (isVerticalLayout && endIsVert) dist *= 0.8
+        if (!isVerticalLayout && !endIsVert) dist *= 0.8
+        // 布局方向打折
+        if (isVerticalDirection && endIsVert) dist *= 0.8
+        if (!isVerticalDirection && !endIsVert) dist *= 0.8
 
         if (dist < minDist) {
           minDist = dist
@@ -216,26 +217,31 @@ export default function EdgeEditor() {
     }
 
     const pathD = buildPathD(bestStart.x, bestStart.y, bestEnd.x, bestEnd.y, curveStyle, bestStart.side, bestEnd.side)
-    return { pathD }
+
+    // 用 SVG path 计算真实中点
+    let midX = sourceNode.x + sourceNode.width / 2
+    let midY = sourceNode.y + sourceNode.height / 2
+    try {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+      path.setAttribute('d', pathD)
+      svg.appendChild(path)
+      document.body.appendChild(svg)
+      const totalLen = path.getTotalLength()
+      const pt = path.getPointAtLength(totalLen / 2)
+      midX = pt.x
+      midY = pt.y
+      document.body.removeChild(svg)
+    } catch {
+      // fallback to simple midpoint
+    }
+
+    return { pathD, midX, midY }
   }, [sourceNode, targetNode, curveStyle])
 
-  // 用 SVG path 计算真实中点
-  let midX = sourceNode.x + sourceNode.width / 2
-  let midY = sourceNode.y + sourceNode.height / 2
-  try {
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
-    path.setAttribute('d', pathD)
-    svg.appendChild(path)
-    document.body.appendChild(svg)
-    const totalLen = path.getTotalLength()
-    const pt = path.getPointAtLength(totalLen / 2)
-    midX = pt.x
-    midY = pt.y
-    document.body.removeChild(svg)
-  } catch {
-    // fallback to simple midpoint
-  }
+  if (!edge || !sourceNode || !targetNode || !pathData) return null
+
+  const { midX, midY } = pathData
 
   return (
     <div

@@ -70,6 +70,7 @@ interface GraphEditorState {
   setLayout: (layout: LayoutMetadata | null) => void
 
   updateNode: (id: string, patch: Partial<NodeState>) => void
+  renameNode: (oldId: string, newId: string) => void
   moveNode: (id: string, x: number, y: number) => void
   removeNode: (id: string) => void
   addNode: (node: NodeState) => void
@@ -145,6 +146,28 @@ export const useGraphEditorStore = create<GraphEditorState>((set, get) => ({
   updateNode: (id, patch) => set({
     nodes: get().nodes.map(n => n.id === id ? { ...n, ...patch } : n),
   }),
+
+  renameNode: (oldId, newId) => {
+    if (oldId === newId) return
+    const { nodes, edges, subgraphs, selectedNodeIds } = get()
+    // 检查新 id 是否已存在
+    if (nodes.some(n => n.id === newId)) return
+    set({
+      nodes: nodes.map(n => n.id === oldId ? { ...n, id: newId } : n),
+      edges: edges.map(e => ({
+        ...e,
+        source: e.source === oldId ? newId : e.source,
+        target: e.target === oldId ? newId : e.target,
+      })),
+      subgraphs: subgraphs.map(sg => ({
+        ...sg,
+        nodes: sg.nodes?.map((nid: string) => nid === oldId ? newId : nid),
+      })),
+      selectedNodeIds: selectedNodeIds.has(oldId)
+        ? new Set([...selectedNodeIds].map(id => id === oldId ? newId : id))
+        : selectedNodeIds,
+    })
+  },
 
   moveNode: (id, x, y) => set({
     nodes: get().nodes.map(n => n.id === id ? { ...n, x, y } : n),

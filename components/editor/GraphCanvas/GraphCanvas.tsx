@@ -1,7 +1,59 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useGraphEditorStore } from '@/lib/graphEditorStore'
+
+/** 形状 → 英文前缀映射 */
+const shapePrefix: Record<string, string> = {
+  rectangle: 'rect',
+  rounded: 'round',
+  stadium: 'stadium',
+  circle: 'circle',
+  diamond: 'diamond',
+  hexagon: 'hex',
+  parallelogram: 'para',
+  'parallelogram-alt': 'para',
+  trapezoid: 'trap',
+  'trapezoid-alt': 'trap',
+  cylinder: 'cyl',
+  cylindrical: 'cyl',
+  subroutine: 'sub',
+  triangle: 'tri',
+  text: 'text',
+  comment: 'comment',
+  hourglass: 'hglass',
+  flag: 'flag',
+  cloud: 'cloud',
+  'h-cyl': 'hcyl',
+  'lin-cyl': 'lcyl',
+  'tag-rect': 'tagrect',
+  'sl-rect': 'slrect',
+  'bow-rect': 'bowrect',
+  'notch-pent': 'npent',
+  'curv-trap': 'ctrap',
+  delay: 'delay',
+  bolt: 'bolt',
+  doc: 'doc',
+  'lin-doc': 'ldoc',
+  'st-doc': 'stdoc',
+  'tag-doc': 'tdoc',
+  fork: 'fork',
+  brace: 'brace',
+  'brace-r': 'bracer',
+  braces: 'braces',
+  'win-pane': 'wpane',
+  ellipse: 'ellipse',
+}
+
+/** 根据形状和已有节点生成唯一 ID */
+function generateNodeId(shape: string, existingNodes: { id: string }[]): string {
+  const prefix = shapePrefix[shape] || shape.replace(/[^a-zA-Z]/g, '')
+  let i = 1
+  while (existingNodes.some(n => n.id === `${prefix}${i}`)) {
+    i++
+  }
+  return `${prefix}${i}`
+}
 import GraphNode from './GraphNode'
 import GraphEdge, { EdgeMarkerDefs } from './GraphEdge'
 import GraphContextMenu from './GraphContextMenu'
@@ -116,10 +168,10 @@ export default function GraphCanvas({}: GraphCanvasProps) {
       const y = Math.min(boxStart.y, boxEnd.y)
 
       if (width > 10 && height > 10) {
-        const nodeId = `node_${Date.now()}`
+        const nodeId = generateNodeId(pendingAddShape || 'rectangle', nodes)
         const newNode = {
           id: nodeId,
-          label: '新节点',
+          label: nodeId,
           shape: pendingAddShape as any,
           x,
           y,
@@ -193,10 +245,10 @@ export default function GraphCanvas({}: GraphCanvasProps) {
         const x = (e.clientX - rect.left - viewTransform.x) / viewTransform.scale
         const y = (e.clientY - rect.top - viewTransform.y) / viewTransform.scale
 
-        const nodeId = `node_${Date.now()}`
+        const nodeId = generateNodeId(pendingAddShape || 'rectangle', nodes)
         const newNode = {
           id: nodeId,
-          label: '新节点',
+          label: nodeId,
           shape: pendingAddShape as any,
           x: x - 60, // 居中
           y: y - 20,
@@ -258,10 +310,10 @@ export default function GraphCanvas({}: GraphCanvasProps) {
       const x = (e.clientX - rect.left - viewTransform.x) / viewTransform.scale
       const y = (e.clientY - rect.top - viewTransform.y) / viewTransform.scale
 
-      const nodeId = `node_${Date.now()}`
+      const nodeId = generateNodeId(shape || 'rectangle', nodes)
       const newNode = {
         id: nodeId,
-        label: '新节点',
+        label: nodeId,
         shape: shape as any,
         x: x - 60,
         y: y - 20,
@@ -322,9 +374,22 @@ export default function GraphCanvas({}: GraphCanvasProps) {
           }}
         >
           <EdgeMarkerDefs />
-          {edges.map(edge => (
-            <GraphEdge key={edge.id} edge={edge} nodes={nodes} />
-          ))}
+          {edges.map(edge => {
+            // 计算平行边的索引和总数（同一对节点间的多条边）
+            const pairKey = [edge.source, edge.target].sort().join('|')
+            const siblings = edges.filter(e => [e.source, e.target].sort().join('|') === pairKey)
+            const parallelCount = siblings.length
+            const parallelIndex = siblings.indexOf(edge)
+            return (
+              <GraphEdge
+                key={edge.id}
+                edge={edge}
+                nodes={nodes}
+                parallelIndex={parallelCount > 1 ? parallelIndex : 0}
+                parallelCount={parallelCount > 1 ? parallelCount : 1}
+              />
+            )
+          })}
 
           {/* 临时连线 */}
           {connecting && (() => {

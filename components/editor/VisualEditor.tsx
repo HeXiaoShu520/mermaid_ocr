@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useCallback, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useStore } from '@/store/useStore'
 import GraphCanvas from './GraphCanvas/GraphCanvas'
 import { PieEditor } from './PieEditor'
@@ -52,103 +52,73 @@ function serializeSeqData(participants: SeqParticipant[], messages: SeqMessage[]
 }
 
 export default function VisualEditor() {
-  const tempMermaid = useStore(s => s.tempMermaid)
-  const setTempMermaid = useStore(s => s.setTempMermaid)
-  const loadToEditor = useStore(s => s.loadToEditor)
-  const syncToCode = useStore(s => s.syncToCode)
+  const { nodes, edges, subgraphs, direction, curveStyle } = useGraphEditorStore()
 
-  const { nodes, edges, subgraphs, initGraph, direction, curveStyle, setDirection, setCurveStyle } = useGraphEditorStore()
+  const diagramType = getDiagramType(useStore.getState().mermaid)
 
   // 专用编辑器的 state
   const [pieDraft, setPieDraft] = useState<{ title: string; data: PieData[] } | null>(null)
   const [xyDraft, setXyDraft] = useState<XyChartData | null>(null)
   const [seqDraft, setSeqDraft] = useState<{ participants: SeqParticipant[]; messages: SeqMessage[] } | null>(null)
 
-  const isEmpty = !tempMermaid.trim()
-  const diagramType = getDiagramType(tempMermaid)
+  // 读取代码：清空所有临时信息，从代码重新解析重建
+  const handleReadCode = useCallback(() => {
+    const code = useStore.getState().mermaid
+    if (!code.trim()) return
+    const dt = getDiagramType(code)
 
-  // 加载代码到各个编辑器
-  useEffect(() => {
-    if (!tempMermaid.trim()) return
+    // 清空所有临时状态
+    setPieDraft(null)
+    setXyDraft(null)
+    setSeqDraft(null)
+    useGraphEditorStore.getState().initGraph([], [], null, [])
 
-    if (diagramType === 'pie') {
-      const parsed = parseMermaidPieChart(tempMermaid)
-      setPieDraft(parsed)
-    } else if (diagramType === 'xychart') {
-      const result = parseMermaidXyChart(tempMermaid)
-      if (result.data) {
-        setXyDraft(result.data)
-      }
-    } else if (diagramType === 'sequenceDiagram') {
-      const parsed = parseSeqData(tempMermaid)
-      setSeqDraft(parsed)
-    } else if (diagramType === 'flowchart') {
+    if (dt === 'pie') {
+      setPieDraft(parseMermaidPieChart(code))
+    } else if (dt === 'xychart') {
+      const result = parseMermaidXyChart(code)
+      if (result.data) setXyDraft(result.data)
+    } else if (dt === 'sequenceDiagram') {
+      setSeqDraft(parseSeqData(code))
+    } else if (dt === 'flowchart') {
       try {
-        const result = importFromCode(tempMermaid, direction)
+        const result = importFromCode(code)
+        const { initGraph, setDirection, setCurveStyle } = useGraphEditorStore.getState()
         initGraph(result.nodes, result.edges, result.layout, result.subgraphs)
         if (result.direction) setDirection(result.direction)
         if (result.curveStyle) setCurveStyle(result.curveStyle)
       } catch (err) {
-        console.error('[VisualEditor] 加载失败:', err)
+        console.error('[handleReadCode] 加载失败:', err)
       }
     }
-  }, [tempMermaid, diagramType, direction, initGraph])
+  }, [])
 
-  // 监听 direction 和 curveStyle 变化，自动同步到代码
-  useEffect(() => {
-    if (diagramType === 'flowchart' && nodes.length > 0) {
-      const code = serializeToMermaid(nodes, edges, direction, subgraphs, curveStyle)
-      setTempMermaid(code)
-      syncToCode()
+  // 回写代码：从画布生成代码写回
+  const handleWriteCode = useCallback(() => {
+    const { nodes, edges, subgraphs, direction, curveStyle } = useGraphEditorStore.getState()
+    const currentDt = getDiagramType(useStore.getState().mermaid)
+    let code = ''
+
+    if (currentDt === 'pie' && pieDraft) {
+      code = serializePieChart(pieDraft.title, pieDraft.data)
+    } else if (currentDt === 'xychart' && xyDraft) {
+      code = serializeXyChart(xyDraft)
+    } else if (currentDt === 'sequenceDiagram' && seqDraft) {
+      code = serializeSeqData(seqDraft.participants, seqDraft.messages)
+    } else {
+      code = serializeToMermaid(nodes, edges, direction, subgraphs, curveStyle)
     }
-  }, [direction, curveStyle])
 
-  // 同步各个编辑器到代码
-  const handleSyncToCode = useCallback(() => {
-    try {
-      let code = ''
-      if (diagramType === 'pie' && pieDraft) {
-        code = serializePieChart(pieDraft.title, pieDraft.data)
-      } else if (diagramType === 'xychart' && xyDraft) {
-        code = serializeXyChart(xyDraft)
-      } else if (diagramType === 'sequenceDiagram' && seqDraft) {
-        code = serializeSeqData(seqDraft.participants, seqDraft.messages)
-      } else if (diagramType === 'flowchart') {
-        code = serializeToMermaid(nodes, edges, direction, subgraphs, curveStyle)
-      }
-
-      if (code) {
-        setTempMermaid(code)
-        syncToCode()
-      }
-    } catch (err) {
-      console.error('[VisualEditor] 同步失败:', err)
+    if (code) {
+      useStore.getState().setMermaid(code)
     }
-  }, [diagramType, pieDraft, xyDraft, seqDraft, nodes, edges, direction, subgraphs, curveStyle, setTempMermaid, syncToCode])
-
-  if (isEmpty) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-gray-50 gap-4">
-        <div className="text-gray-500 text-center mb-4">
-          <div className="text-lg font-semibold mb-2">可视化编辑区</div>
-          <div className="text-sm">点击下方按钮加载代码到编辑器</div>
-        </div>
-        <button
-          onClick={loadToEditor}
-          className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors shadow-lg flex items-center gap-2"
-        >
-          <span>📥</span>
-          <span>加载代码到编辑器</span>
-        </button>
-      </div>
-    )
-  }
+  }, [pieDraft, xyDraft, seqDraft])
 
   // 专用编辑器
   if (diagramType === 'pie' && pieDraft) {
     return (
       <div className="flex-1 relative">
-        <SyncButtons onSync={handleSyncToCode} onReload={loadToEditor} />
+        <SyncButtons onRead={handleReadCode} onWrite={handleWriteCode} />
         <PieEditor title={pieDraft.title} data={pieDraft.data} onUpdate={(title, data) => setPieDraft({ title, data })} />
       </div>
     )
@@ -157,7 +127,7 @@ export default function VisualEditor() {
   if (diagramType === 'xychart' && xyDraft) {
     return (
       <div className="flex-1 relative">
-        <SyncButtons onSync={handleSyncToCode} onReload={loadToEditor} />
+        <SyncButtons onRead={handleReadCode} onWrite={handleWriteCode} />
         <XyChartEditor data={xyDraft} onUpdate={setXyDraft} />
       </div>
     )
@@ -166,60 +136,66 @@ export default function VisualEditor() {
   if (diagramType === 'sequenceDiagram' && seqDraft) {
     return (
       <div className="flex-1 relative">
-        <SyncButtons onSync={handleSyncToCode} onReload={loadToEditor} />
+        <SyncButtons onRead={handleReadCode} onWrite={handleWriteCode} />
         <SequenceEditor participants={seqDraft.participants} messages={seqDraft.messages} onUpdate={(p, m) => setSeqDraft({ participants: p, messages: m })} />
       </div>
     )
   }
 
-  // Graph 编辑器（流程图）
+  // 流程图编辑器
+  const hasNodes = nodes.length > 0
+
   return (
     <div className="flex-1 flex flex-col relative">
-      {/* 标题栏 + 操作按钮 */}
       <div className="flex items-center gap-2 px-3 py-2.5 border-b bg-gray-50">
         <div className="text-xs font-semibold text-gray-700">画布区</div>
         <button
-          onClick={handleSyncToCode}
-          className="px-4 py-2 bg-orange-50 border border-orange-300 text-orange-700 rounded text-sm hover:bg-orange-100 transition-colors"
-          title="将编辑器的修改同步到代码"
+          onClick={handleReadCode}
+          className="px-4 py-2 bg-cyan-50 border border-cyan-300 text-cyan-700 rounded text-sm hover:bg-cyan-100 transition-colors"
+          title="从代码重新加载画布"
         >
-          ⬆️ 同步回代码
+          ⬇️ 读取代码
         </button>
         <button
-          onClick={loadToEditor}
-          className="px-4 py-2 bg-cyan-50 border border-cyan-300 text-cyan-700 rounded text-sm hover:bg-cyan-100 transition-colors"
-          title="重新从代码加载并自动布局"
+          onClick={handleWriteCode}
+          className="px-4 py-2 bg-orange-50 border border-orange-300 text-orange-700 rounded text-sm hover:bg-orange-100 transition-colors"
+          title="将画布内容写回代码"
         >
-          ⬇️ 格式化布局
+          ⬆️ 回写代码
         </button>
       </div>
-
-      {/* 编辑区内容 */}
       <div className="flex-1 relative">
         <GraphCanvas />
+        {!hasNodes && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 pointer-events-none gap-2">
+            <div style={{ fontSize: 48 }}>🎨</div>
+            <div className="text-sm">画布区</div>
+            <div className="text-xs text-gray-300">点击「读取代码」加载图表</div>
+          </div>
+        )}
       </div>
     </div>
   )
 }
 
-function SyncButtons({ onSync, onReload }: { onSync: () => void; onReload: () => void }) {
+function SyncButtons({ onRead, onWrite }: { onRead: () => void; onWrite: () => void }) {
   return (
     <div className="absolute top-3 left-3 z-[100] flex gap-2">
       <button
-        onClick={onSync}
+        onClick={onRead}
         className="px-4 py-2 bg-white border border-gray-300 rounded shadow-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
-        title="将编辑器的修改同步到代码"
-      >
-        <span>⬆️</span>
-        <span>同步到代码</span>
-      </button>
-      <button
-        onClick={onReload}
-        className="px-4 py-2 bg-white border border-gray-300 rounded shadow-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
-        title="重新从代码加载并自动布局"
+        title="从代码重新加载画布"
       >
         <span>⬇️</span>
-        <span>格式化布局</span>
+        <span>读取代码</span>
+      </button>
+      <button
+        onClick={onWrite}
+        className="px-4 py-2 bg-white border border-gray-300 rounded shadow-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+        title="将画布内容写回代码"
+      >
+        <span>⬆️</span>
+        <span>回写代码</span>
       </button>
     </div>
   )
