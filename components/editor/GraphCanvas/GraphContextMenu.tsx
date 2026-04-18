@@ -2,9 +2,11 @@
 
 import { useEffect } from 'react'
 import { useGraphEditorStore } from '@/lib/graphEditorStore'
+import { useAiStore } from '@/lib/aiStore'
 
 export default function GraphContextMenu() {
-  const { contextMenu, setContextMenu, removeNode, removeEdge } = useGraphEditorStore()
+  const { contextMenu, setContextMenu, removeNode, removeEdge, nodes, subgraphs } = useGraphEditorStore()
+  const { addContextNode, setIsOpen, insertTextToInput } = useAiStore()
 
   useEffect(() => {
     if (!contextMenu) return
@@ -34,6 +36,25 @@ export default function GraphContextMenu() {
     setContextMenu(null)
   }
 
+  const handleReferenceToAi = () => {
+    if (contextMenu.nodeId) {
+      const node = nodes.find((n) => n.id === contextMenu.nodeId)
+      if (node) {
+        insertTextToInput(`「${node.label}」`)
+        setIsOpen(true)
+      }
+    } else if (contextMenu.subgraphId) {
+      const subgraph = subgraphs.find((s) => s.id === contextMenu.subgraphId)
+      if (subgraph) {
+        const childNodes = nodes.filter((n) => n.subgraph === subgraph.id)
+        const childDesc = childNodes.map((n) => `「${n.label}」`).join('、')
+        insertTextToInput(`「${subgraph.label}」(包含${childDesc})`)
+        setIsOpen(true)
+      }
+    }
+    setContextMenu(null)
+  }
+
   return (
     <div
       style={{
@@ -49,6 +70,29 @@ export default function GraphContextMenu() {
       }}
       onClick={(e) => e.stopPropagation()}
     >
+      {(contextMenu.nodeId || contextMenu.subgraphId) && (
+        <button
+          onClick={handleReferenceToAi}
+          style={{
+            width: '100%',
+            padding: '8px 12px',
+            background: 'none',
+            border: 'none',
+            textAlign: 'left',
+            cursor: 'pointer',
+            fontSize: 13,
+            color: '#667eea',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = '#f5f3ff')}
+          onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+        >
+          <span>🤖</span>
+          <span>引用到 AI</span>
+        </button>
+      )}
       <button
         onClick={handleDelete}
         style={{

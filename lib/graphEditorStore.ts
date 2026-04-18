@@ -50,7 +50,7 @@ interface GraphEditorState {
   hoveredNodeId: string | null
   editingNodeId: string | null
   editingEdgeId: string | null
-  contextMenu: { x: number; y: number; nodeId?: string; edgeId?: string } | null
+  contextMenu: { x: number; y: number; nodeId?: string; edgeId?: string; subgraphId?: string } | null
 
   // ─── 设置 ───
   showGrid: boolean
@@ -110,6 +110,7 @@ interface GraphEditorState {
 
   // ─── 批量初始化 ───
   initGraph: (nodes: NodeState[], edges: EdgeState[], layout: LayoutMetadata | null, subgraphs?: SubgraphState[]) => void
+  resolveSubgraphOverlaps: () => void
 }
 
 const MAX_HISTORY = 50
@@ -418,5 +419,87 @@ export const useGraphEditorStore = create<GraphEditorState>((set, get) => ({
       selectedEdgeId: null,
       selectedSubgraphId: null,
     })
+    // 初始化后解决子图重叠
+    if (subgraphs.length > 1) {
+      setTimeout(() => get().resolveSubgraphOverlaps(), 0)
+    }
+  },
+
+  resolveSubgraphOverlaps: () => {
+    const { nodes, subgraphs } = get()
+    if (subgraphs.length < 2) return
+
+    const padding = 20
+    const titleHeight = 30
+    const gap = 10
+    let updatedNodes = [...nodes]
+    let changed = false
+
+    // 计算每个子图的边界框
+    const getBounds = (sgId: string) => {
+      const sgNodes = updatedNodes.filter(n => n.subgraph === sgId)
+      if (sgNodes.length === 0) return null
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+      sgNodes.forEach(n => {
+        minX = Math.min(minX, n.x)
+        minY = Math.min(minY, n.y)
+        maxX = Math.max(maxX, n.x + n.width)
+        maxY = Math.max(maxY, n.y + n.height)
+      })
+      return {
+        x: minX - padding,
+        y: minY - padding - titleHeight,
+        width: maxX - minX + padding * 2,
+        height: maxY - minY + padding * 2 + titleHeight,
+      }
+    }
+
+    // 多轮迭代解决重叠（最多 10 轮）
+    for (let iter = 0; iter < 10; iter++) {
+      let iterChanged = false
+      for (let i = 0; i < subgraphs.length; i++) {
+        for (let j = i + 1; j < subgraphs.length; j++) {
+          const boundsA = getBounds(subgraphs[i].id)
+          const boundsB = getBounds(subgraphs[j].id)
+          if (!boundsA || !boundsB) continue
+
+          // AABB 碰撞检测
+          if (
+            boundsA.x < boundsB.x + boundsB.width + gap &&
+            boundsA.x + boundsA.width > boundsB.x - gap &&
+            boundsA.y < boundsB.y + boundsB.height + gap &&
+            boundsA.y + boundsA.height > boundsB.y - gap
+          ) {
+            // 计算推开方向
+            const overlapLeft = (boundsA.x + boundsA.width + gap) - boundsB.x
+            const overlapRight = (boundsB.x + boundsB.width + gap) - boundsA.x
+            const overlapTop = (boundsA.y + boundsA.height + gap) - boundsB.y
+            const overlapBottom = (boundsB.y + boundsB.height + gap) - boundsA.y
+
+            const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom)
+            let pushDx = 0, pushDy = 0
+
+            if (minOverlap === overlapLeft) pushDx = overlapLeft
+            else if (minOverlap === overlapRight) pushDx = -overlapRight
+            else if (minOverlap === overlapTop) pushDy = overlapTop
+            else pushDy = -overlapBottom
+
+            // 推开子图 B 的所有节点
+            updatedNodes = updatedNodes.map(n =>
+              n.subgraph === subgraphs[j].id
+                ? { ...n, x: n.x + pushDx, y: n.y + pushDy }
+                : n
+            )
+            iterChanged = true
+            changed = true
+          }
+        }
+      }
+      if (!iterChanged) break
+    }
+
+    if (changed) {
+      set({ nodes: updatedNodes })
+    }
   },
 }))

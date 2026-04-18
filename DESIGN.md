@@ -140,6 +140,44 @@ interface NodeState {
 ### 渲染方式
 `Subgraph.tsx` 根据属于该子图的节点坐标动态计算 bounding box，渲染为半透明边框层（`zIndex: 0`，在节点之下）。
 
+## AI 助手模块
+
+### 架构
+```
+左侧面板 AI 配置区（Base URL / Model / API Key）
+    │ 持久化到 localStorage（Zustand persist）
+    ▼
+lib/aiStore.ts（useAiStore）
+    │ messages, isOpen, isLoading, currentContextNodes
+    ▼
+components/editor/AiChatBox.tsx（常驻画布底部）
+    │ 展开/收起，引用节点插入输入框，多轮对话
+    ▼
+app/api/chat/route.ts（SSE 流式接口）
+    │ 系统提示 + 当前画布序列化代码 + 历史消息
+    ▼
+Anthropic / OpenAI 兼容接口
+    │ 返回含 ```mermaid 代码块的响应
+    ▼
+自动应用到画布（graphEditorStore 临时预览）
+    │ 用户确认后"回写代码"同步到编辑器
+```
+
+### 关键设计决策
+- **画布代码优先**：发给 AI 的是 `graphSerializer` 序列化的画布状态，而非编辑器代码，保持解耦
+- **节点引用**：右键菜单"引用到 AI"将 `「节点名」` 插入输入框光标位置，子图引用同时附带内部节点列表
+- **流式渲染**：SSE 逐字输出，实时解析 mermaid 代码块并应用到画布
+- **多轮对话**：完整历史消息随每次请求发送，支持上下文连续修改
+
+### 相关文件
+| 文件 | 职责 |
+|------|------|
+| `lib/aiStore.ts` | AI 配置 + 对话状态管理 |
+| `app/api/chat/route.ts` | 流式 AI 接口（SSE） |
+| `components/editor/AiChatBox.tsx` | 对话 UI，常驻画布底部 |
+| `components/EditorApp.tsx` | 左侧面板 AI 配置区 |
+| `components/editor/GraphCanvas/GraphContextMenu.tsx` | 右键菜单"引用到 AI" |
+
 ## 支持的图表类型
 
 | 类型 | 编辑器 |

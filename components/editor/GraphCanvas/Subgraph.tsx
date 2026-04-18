@@ -10,7 +10,7 @@ interface SubgraphProps {
 }
 
 export default function Subgraph({ subgraph, nodes, viewTransform }: SubgraphProps) {
-  const { selectedSubgraphId, selectSubgraph, moveSubgraph, clearSelection } = useGraphEditorStore()
+  const { selectedSubgraphId, selectSubgraph, moveSubgraph, clearSelection, setContextMenu } = useGraphEditorStore()
 
   const isSelected = selectedSubgraphId === subgraph.id
   const [isDragging, setIsDragging] = useState(false)
@@ -69,6 +69,12 @@ export default function Subgraph({ subgraph, nodes, viewTransform }: SubgraphPro
     setIsDragging(false)
   }, [])
 
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setContextMenu({ x: e.clientX, y: e.clientY, subgraphId: subgraph.id })
+  }, [subgraph.id, setContextMenu])
+
   useEffect(() => {
     if (isDragging) {
       window.addEventListener('mousemove', handleMouseMove)
@@ -100,6 +106,7 @@ export default function Subgraph({ subgraph, nodes, viewTransform }: SubgraphPro
         transition: isDragging ? 'none' : 'border-color 0.15s, background-color 0.15s',
       }}
       onMouseDown={handleMouseDown}
+      onContextMenu={handleContextMenu}
     >
       {/* 子图标题 */}
       <div

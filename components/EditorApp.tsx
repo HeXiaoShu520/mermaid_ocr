@@ -17,6 +17,7 @@ import { XyChartEditor } from "@/components/editor/XyChartEditor";
 import { SequenceEditor, type SeqParticipant, type SeqMessage } from "@/components/editor/SequenceEditor";
 import MermaidPreview from "@/components/editor/MermaidPreview";
 import VisualEditor from "@/components/editor/VisualEditor";
+import { useAiStore } from "@/lib/aiStore";
 
 mermaid.initialize({ startOnLoad: false });
 
@@ -417,8 +418,59 @@ function LeftPanel() {
           </div>
         )}
       </Section>
+
+      <Section title="🤖 AI 设置">
+        <AiConfigSection />
+      </Section>
     </div>
   );
+}
+
+/* ─── AI Config Section ─── */
+function AiConfigSection() {
+  const { apiKey, baseURL, model, setApiKey, setBaseURL, setModel } = useAiStore()
+  const inputStyle: React.CSSProperties = {
+    width: "100%", background: "#fff", border: PANEL_BORDER, borderRadius: 6,
+    padding: "6px 8px", fontSize: 11, color: "#374151", outline: "none",
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div>
+        <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 4 }}>Base URL (可选)</div>
+        <input
+          type="text"
+          value={baseURL}
+          onChange={(e) => setBaseURL(e.target.value)}
+          placeholder="https://api.anthropic.com"
+          style={inputStyle}
+        />
+      </div>
+      <div>
+        <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 4 }}>模型名称 (可选)</div>
+        <input
+          type="text"
+          value={model}
+          onChange={(e) => setModel(e.target.value)}
+          placeholder="claude-3-5-sonnet-20241022"
+          style={inputStyle}
+        />
+      </div>
+      <div>
+        <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 4 }}>API Key</div>
+        <input
+          type="password"
+          value={apiKey}
+          onChange={(e) => setApiKey(e.target.value)}
+          placeholder="sk-ant-..."
+          style={inputStyle}
+        />
+      </div>
+      <div style={{ fontSize: 9, color: "#9CA3AF", lineHeight: 1.4 }}>
+        💡 配置后可在画布区使用 AI 助手。留空则使用环境变量。
+      </div>
+    </div>
+  )
 }
 
 /* ─── Unified Canvas Column (replaces MermaidPreview + VisualEditorColumn) ─── */

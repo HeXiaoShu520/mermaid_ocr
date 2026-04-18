@@ -12,6 +12,8 @@ import { importFromCode } from '@/lib/graphImporter'
 import { serializeToMermaid } from '@/lib/graphSerializer'
 import { parseMermaidPieChart, serializePieChart, type PieData } from '@/lib/pieParser'
 import { parseMermaidXyChart, serializeXyChart, type XyChartData } from '@/lib/xyChartParser'
+import AiChatBox from './AiChatBox'
+import { useAiStore } from '@/lib/aiStore'
 
 // 解析时序图数据
 function parseSeqData(code: string): { participants: SeqParticipant[]; messages: SeqMessage[] } {
@@ -173,6 +175,7 @@ export default function VisualEditor() {
             <div className="text-xs text-gray-300">点击「读取代码」加载图表</div>
           </div>
         )}
+        <AiChatBox />
       </div>
     </div>
   )
