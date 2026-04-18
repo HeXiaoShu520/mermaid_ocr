@@ -169,10 +169,11 @@ export default function VisualEditor() {
       <div className="flex-1 relative">
         <GraphCanvas />
         {!hasNodes && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 pointer-events-none gap-2">
-            <div style={{ fontSize: 48 }}>🎨</div>
-            <div className="text-sm">画布区</div>
-            <div className="text-xs text-gray-300">点击「读取代码」加载图表</div>
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 pointer-events-none gap-3">
+            <div style={{ fontSize: 72, lineHeight: 1 }}>🎨</div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 13, fontWeight: 500, color: "#6b7280" }}>画布区</div>
+            </div>
           </div>
         )}
         <AiChatBox />

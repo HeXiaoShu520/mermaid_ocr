@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import mermaid from 'mermaid'
 import { useSvgEditorStore } from '@/lib/svgEditorStore'
 import { useGraphEditorStore } from '@/lib/graphEditorStore'
-import { ZoomIn, ZoomOut, Maximize2, FileCode2 } from 'lucide-react'
+import { ZoomIn, ZoomOut, Maximize2 } from 'lucide-react'
 
 interface MermaidPreviewProps {
   code: string
@@ -227,12 +227,9 @@ export default function MermaidPreview({ code, widthPx }: MermaidPreviewProps) {
           </button>
         </div>
         <div className="flex-1 flex flex-col items-center justify-center gap-4">
-          <div className="flex items-center justify-center w-20 h-20 rounded-2xl bg-gray-100">
-            <FileCode2 size={40} className="text-gray-300" />
-          </div>
+          <div style={{ fontSize: 72, lineHeight: 1 }}>🖼️</div>
           <div className="text-center">
-            <div className="text-sm font-medium text-gray-400">暂无内容</div>
-            <div className="text-xs text-gray-300 mt-1">在代码编辑器中输入 Mermaid 代码后自动渲染</div>
+            <div style={{ fontSize: 13, fontWeight: 500, color: "#6b7280" }}>渲染区</div>
           </div>
         </div>
       </div>

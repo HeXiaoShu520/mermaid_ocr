@@ -529,15 +529,25 @@ function CodeEditor({ widthPx }: { widthPx: number }) {
         </button>
       </div>
       {/* 代码编辑区 */}
-      <textarea
-        value={code}
-        onChange={(e) => setMermaid(e.target.value)}
-        onCopy={(e) => e.stopPropagation()}
-        onCut={(e) => e.stopPropagation()}
-        onPaste={(e) => e.stopPropagation()}
-        placeholder="输入 Mermaid 代码..."
-        style={{ flex: 1, background: "#fff", border: "none", padding: 12, fontSize: 13, fontFamily: "monospace", color: "#374151", resize: "none", outline: "none" }}
-      />
+      <div style={{ flex: 1, position: "relative" }}>
+        <textarea
+          value={code}
+          onChange={(e) => setMermaid(e.target.value)}
+          onCopy={(e) => e.stopPropagation()}
+          onCut={(e) => e.stopPropagation()}
+          onPaste={(e) => e.stopPropagation()}
+          placeholder=""
+          style={{ width: "100%", height: "100%", background: "#fff", border: "none", padding: 12, fontSize: 13, fontFamily: "monospace", color: "#374151", resize: "none", outline: "none" }}
+        />
+        {!code && (
+          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, pointerEvents: "none" }}>
+            <div style={{ fontSize: 72, lineHeight: 1 }}>📄</div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 13, fontWeight: 500, color: "#6b7280" }}>代码区</div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
