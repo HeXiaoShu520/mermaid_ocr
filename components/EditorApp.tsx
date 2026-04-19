@@ -19,6 +19,7 @@ import { SequenceEditor, type SeqParticipant, type SeqMessage } from "@/componen
 import MermaidPreview from "@/components/editor/MermaidPreview";
 import VisualEditor from "@/components/editor/VisualEditor";
 import { useAiStore } from "@/lib/aiStore";
+import { dagreLayout } from "@/lib/graphLayout";
 
 mermaid.initialize({ startOnLoad: false });
 
@@ -293,6 +294,14 @@ function FlowchartSettingsSection() {
 
   const handleDirectionChange = (d: Direction) => {
     setDirection(d);
+    // 重新布局画布
+    const { nodes, edges, setNodes } = useGraphEditorStore.getState();
+    if (nodes.length > 0) {
+      const graphNodes = nodes.map(n => ({ id: n.id, label: n.label, shape: n.shape }));
+      const graphEdges = edges.map(e => ({ id: e.id, source: e.source, target: e.target, label: e.label }));
+      const layoutResult = dagreLayout(graphNodes, graphEdges, d);
+      setNodes(layoutResult.nodes);
+    }
   };
 
   const handleCurveStyleChange = (c: CurveStyle) => {
