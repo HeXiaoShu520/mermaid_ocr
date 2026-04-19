@@ -295,12 +295,33 @@ function FlowchartSettingsSection() {
   const handleDirectionChange = (d: Direction) => {
     setDirection(d);
     // 重新布局画布
-    const { nodes, edges, setNodes } = useGraphEditorStore.getState();
+    const { nodes, edges, subgraphs, setNodes, setSubgraphs } = useGraphEditorStore.getState();
     if (nodes.length > 0) {
       const graphNodes = nodes.map(n => ({ id: n.id, label: n.label, shape: n.shape }));
       const graphEdges = edges.map(e => ({ id: e.id, source: e.source, target: e.target, label: e.label }));
       const layoutResult = dagreLayout(graphNodes, graphEdges, d);
       setNodes(layoutResult.nodes);
+
+      // 更新子图位置：根据内部节点重新计算边界
+      const updatedSubgraphs = subgraphs.map(sg => {
+        const sgNodes = layoutResult.nodes.filter(n => sg.nodes.includes(n.id));
+        if (sgNodes.length === 0) return sg;
+
+        const minX = Math.min(...sgNodes.map(n => n.x));
+        const minY = Math.min(...sgNodes.map(n => n.y));
+        const maxX = Math.max(...sgNodes.map(n => n.x + n.width));
+        const maxY = Math.max(...sgNodes.map(n => n.y + n.height));
+        const padding = 20;
+
+        return {
+          ...sg,
+          x: minX - padding,
+          y: minY - padding,
+          width: maxX - minX + padding * 2,
+          height: maxY - minY + padding * 2,
+        };
+      });
+      setSubgraphs(updatedSubgraphs);
     }
   };
 
