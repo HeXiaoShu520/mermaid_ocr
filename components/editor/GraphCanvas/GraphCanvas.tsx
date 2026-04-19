@@ -422,7 +422,7 @@ export default function GraphCanvas({}: GraphCanvasProps) {
             const parallelIndex = siblings.indexOf(edge)
             return (
               <GraphEdge
-                key={edge.id}
+                key={`${edge.id}-${direction}-${curveStyle}`}
                 edge={edge}
                 nodes={nodes}
                 parallelIndex={parallelCount > 1 ? parallelIndex : 0}

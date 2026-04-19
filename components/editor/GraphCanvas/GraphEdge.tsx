@@ -216,7 +216,7 @@ export default function GraphEdge({ edge, nodes, parallelIndex = 0, parallelCoun
     }
 
     return buildPathD(sx, sy, ex, ey, curveStyle, bestStart.side, bestEnd.side)
-  }, [fromNode, toNode, curveStyle, parallelIndex, parallelCount])
+  }, [fromNode, toNode, curveStyle, direction, parallelIndex, parallelCount])
 
   // ─── 计算曲线真实中点 ───
   const pathRef = useRef<SVGPathElement>(null)
