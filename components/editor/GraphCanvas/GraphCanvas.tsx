@@ -89,6 +89,8 @@ export default function GraphCanvas({}: GraphCanvasProps) {
     removeEdge,
     removeNode,
     addSubgraph,
+    direction,
+    curveStyle,
   } = useGraphEditorStore()
 
   // ─── Pan and Zoom ───
