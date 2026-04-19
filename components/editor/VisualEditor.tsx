@@ -15,6 +15,7 @@ import { parseMermaidXyChart, serializeXyChart, type XyChartData } from '@/lib/x
 import { useSeqEditorStore } from '@/lib/seqEditorStore'
 import { parseSeqCode, serializeSeqCode } from '@/lib/seqParser'
 import AiChatBox from './AiChatBox'
+import { dagreLayout } from '@/lib/graphLayout'
 
 export default function VisualEditor() {
   const nodes = useGraphEditorStore(s => s.nodes)
@@ -79,6 +80,29 @@ export default function VisualEditor() {
       useStore.getState().setMermaid(code)
     }
   }, [pieDraft, xyDraft])
+
+  // 格式化布局：用当前 direction 重新跑 dagre
+  const handleRelayout = useCallback(() => {
+    const { nodes, edges, subgraphs, direction, setNodes, setSubgraphs } = useGraphEditorStore.getState()
+    if (nodes.length === 0) return
+
+    const graphNodes = nodes.map(n => ({ id: n.id, label: n.label, shape: n.shape }))
+    const graphEdges = edges.map(e => ({ id: e.id, source: e.source, target: e.target, label: e.label }))
+    const layoutResult = dagreLayout(graphNodes, graphEdges, direction)
+    setNodes(layoutResult.nodes)
+
+    const updatedSubgraphs = subgraphs.map(sg => {
+      const sgNodes = layoutResult.nodes.filter(n => sg.nodes.includes(n.id))
+      if (sgNodes.length === 0) return sg
+      const minX = Math.min(...sgNodes.map(n => n.x))
+      const minY = Math.min(...sgNodes.map(n => n.y))
+      const maxX = Math.max(...sgNodes.map(n => n.x + n.width))
+      const maxY = Math.max(...sgNodes.map(n => n.y + n.height))
+      const padding = 20
+      return { ...sg, x: minX - padding, y: minY - padding, width: maxX - minX + padding * 2, height: maxY - minY + padding * 2 }
+    })
+    setSubgraphs(updatedSubgraphs)
+  }, [])
 
   // 饼图编辑器
   if (diagramType === 'pie' && pieDraft) {
@@ -149,6 +173,13 @@ export default function VisualEditor() {
           title="将画布内容写回代码"
         >
           ⬆️ 回写代码
+        </button>
+        <button
+          onClick={handleRelayout}
+          className="px-4 py-2 bg-purple-50 border border-purple-300 text-purple-700 rounded text-sm hover:bg-purple-100 transition-colors"
+          title="重新计算节点和子图布局"
+        >
+          🔄 格式化布局
         </button>
       </div>
       <div className="flex-1 relative">
