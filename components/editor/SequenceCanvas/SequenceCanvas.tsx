@@ -332,7 +332,7 @@ export default function SequenceCanvas() {
             return (
               <line
                 x1={fromP.x}
-                y1={SEQ_HEAD_H + (maxOrder + 1) * SEQ_ROW_H}
+                y1={connecting.fromY || SEQ_HEAD_H + (maxOrder + 1) * SEQ_ROW_H}
                 x2={connecting.mousePos.x}
                 y2={connecting.mousePos.y}
                 stroke="#6366f1"

@@ -41,6 +41,7 @@ export interface SeqFragment {
 
 export interface SeqConnectionState {
   fromId: string
+  fromY: number
   mousePos: { x: number; y: number }
 }
 
@@ -108,7 +109,7 @@ interface SeqEditorState {
   setViewTransform: (t: { x: number; y: number; scale: number }) => void
 
   // 连线
-  startConnection: (fromId: string) => void
+  startConnection: (fromId: string, fromY?: number) => void
   updateConnectionMouse: (x: number, y: number) => void
   endConnection: (toId: string) => void
   cancelConnection: () => void
@@ -283,8 +284,8 @@ export const useSeqEditorStore = create<SeqEditorState>((set, get) => ({
   setViewTransform: (t) => set({ viewTransform: t }),
 
   // ─── Connection Actions ───
-  startConnection: (fromId) => set({
-    connecting: { fromId, mousePos: { x: 0, y: 0 } },
+  startConnection: (fromId, fromY = 0) => set({
+    connecting: { fromId, fromY, mousePos: { x: 0, y: 0 } },
   }),
 
   updateConnectionMouse: (x, y) => {

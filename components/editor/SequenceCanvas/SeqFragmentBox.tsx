@@ -120,6 +120,15 @@ export default function SeqFragmentBox({ fragment, participants }: Props) {
         </text>
       </g>
 
+      {/* ID 标签 */}
+      <text
+        x={minX + width - 6} y={topY + 14}
+        textAnchor="end" fontSize={9} fill="#9ca3af" fontFamily="monospace"
+        style={{ pointerEvents: 'none' }}
+      >
+        {fragment.id}
+      </text>
+
       {/* section 分隔线（alt/par） */}
       {fragment.sections?.map((sec, i) => {
         // 简单地在 fragment 中间均分

@@ -21,6 +21,30 @@ export default function MermaidPreview({ code, widthPx }: MermaidPreviewProps) {
   const theme = useSvgEditorStore(s => s.theme)
   const look = useSvgEditorStore(s => s.look)
 
+  // 渲染完成后居中显示
+  useEffect(() => {
+    if (!svg || !containerRef.current) return
+    // 等 DOM 更新后测量
+    requestAnimationFrame(() => {
+      const container = containerRef.current
+      if (!container) return
+      const svgEl = container.querySelector('svg')
+      if (!svgEl) return
+      const cW = container.clientWidth
+      const cH = container.clientHeight
+      const sW = svgEl.clientWidth || svgEl.getBoundingClientRect().width
+      const sH = svgEl.clientHeight || svgEl.getBoundingClientRect().height
+      if (sW === 0 || sH === 0) return
+      // 计算适配缩放（留 20px 边距）
+      const scaleX = (cW - 40) / sW
+      const scaleY = (cH - 40) / sH
+      const scale = Math.min(1, scaleX, scaleY)
+      const x = (cW - sW * scale) / 2
+      const y = (cH - sH * scale) / 2
+      setViewTransform({ x, y, scale })
+    })
+  }, [svg])
+
   // 渲染 Mermaid SVG
   useEffect(() => {
     if (!code.trim()) {
@@ -112,7 +136,21 @@ export default function MermaidPreview({ code, widthPx }: MermaidPreviewProps) {
   }
 
   const handleFitView = () => {
-    setViewTransform({ x: 0, y: 0, scale: 1 })
+    const container = containerRef.current
+    if (!container) { setViewTransform({ x: 0, y: 0, scale: 1 }); return }
+    const svgEl = container.querySelector('svg')
+    if (!svgEl) { setViewTransform({ x: 0, y: 0, scale: 1 }); return }
+    const cW = container.clientWidth
+    const cH = container.clientHeight
+    const sW = svgEl.clientWidth || svgEl.getBoundingClientRect().width
+    const sH = svgEl.clientHeight || svgEl.getBoundingClientRect().height
+    if (sW === 0 || sH === 0) { setViewTransform({ x: 0, y: 0, scale: 1 }); return }
+    const scaleX = (cW - 40) / sW
+    const scaleY = (cH - 40) / sH
+    const scale = Math.min(1, scaleX, scaleY)
+    const x = (cW - sW * scale) / 2
+    const y = (cH - sH * scale) / 2
+    setViewTransform({ x, y, scale })
   }
 
   // 导出 PNG

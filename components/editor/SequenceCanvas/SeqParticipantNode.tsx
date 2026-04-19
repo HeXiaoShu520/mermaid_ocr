@@ -73,8 +73,16 @@ export default function SeqParticipantNode({ participant, lifelineHeight, viewSc
   const handleLifelineMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return
     e.stopPropagation()
-    startConnection(participant.id)
-  }, [participant.id, startConnection])
+    // 计算点击位置的 y 坐标（画布坐标）
+    const svg = (e.target as SVGElement).closest('svg')
+    if (svg) {
+      const rect = svg.getBoundingClientRect()
+      const y = (e.clientY - rect.top) / viewScale
+      startConnection(participant.id, y)
+    } else {
+      startConnection(participant.id)
+    }
+  }, [participant.id, viewScale, startConnection])
 
   const x = participant.x
   const boxLeft = x - BOX_W / 2
@@ -142,6 +150,16 @@ export default function SeqParticipantNode({ participant, lifelineHeight, viewSc
           </text>
         )}
       </g>
+
+      {/* ID 标签（顶部框下方） */}
+      <text
+        x={x} y={boxTop + BOX_H + 14}
+        textAnchor="middle" dominantBaseline="middle"
+        fontSize={9} fill="#9ca3af" fontFamily="monospace"
+        style={{ pointerEvents: 'none' }}
+      >
+        {participant.id}
+      </text>
 
       {/* 底部参与者框 */}
       <g style={{ pointerEvents: 'none' }}>

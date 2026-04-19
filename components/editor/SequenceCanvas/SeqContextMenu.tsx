@@ -106,6 +106,17 @@ export default function SeqContextMenu() {
     const f = fragments.find(ff => ff.id === fragmentId)
     if (f) {
       items.push({
+        label: `引用「${f.type}[${f.label}]」到 AI`,
+        onClick: () => {
+          const { setIsOpen, addContextNode, insertTextToInput } = useAiStore.getState()
+          addContextNode({ id: f.id, label: `${f.type}[${f.label}]` })
+          insertTextToInput(`「${f.type}[${f.label}]」`)
+          setIsOpen(true)
+          setContextMenu(null)
+        },
+      })
+      items.push({ label: '', onClick: () => {}, divider: true })
+      items.push({
         label: '删除片段',
         danger: true,
         onClick: () => { removeFragment(fragmentId); setContextMenu(null) },
