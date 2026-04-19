@@ -3,6 +3,7 @@ import { ObjectSettingsSection } from "@/components/editor/Inspector/ObjectSetti
 import { ShapeIcon, SHAPE_CATEGORIES, type ShapeCategory } from "@/components/editor/ShapeIcons";
 import { useSvgEditorStore, type NodeShape, type Direction, type Theme, type CurveStyle } from "@/lib/svgEditorStore";
 import { useGraphEditorStore } from "@/lib/graphEditorStore";
+import { serializeToMermaid } from "@/lib/graphSerializer";
 import { parseMermaidPieChart, serializePieChart } from "@/lib/pieParser";
 import { parseMermaidXyChart, serializeXyChart } from "@/lib/xyChartParser";
 import type { XyChartData } from "@/lib/xyChartParser";
@@ -165,7 +166,6 @@ function ResizeDivider({ onDrag }: { onDrag: (dx: number) => void }) {
 function ShapesSection() {
   const pendingAddShape = useGraphEditorStore((s) => s.pendingAddShape);
   const setPendingAddShape = useGraphEditorStore((s) => s.setPendingAddShape);
-  const addSubgraph = useGraphEditorStore((s) => s.addSubgraph);
   const [tab, setTab] = useState<ShapeCategory>("basic");
   const category = SHAPE_CATEGORIES.find((c) => c.id === tab)!;
 
@@ -207,14 +207,22 @@ function ShapesSection() {
           background: "none", border: "none", fontSize: 10, color: "#9CA3AF",
           cursor: "pointer", display: "flex", alignItems: "center", gap: 4,
         }}>→ 取消选择</button>
-        <button onClick={() => {
-          const id = `sg_${Date.now()}`
-          addSubgraph({ id, label: '子图', nodes: [] })
-        }} style={{
-          background: "#F0FDF4", border: "1px solid #86EFAC", borderRadius: 6,
-          fontSize: 10, color: "#16A34A", cursor: "pointer", padding: "3px 8px",
-        }}>+ 添加子图</button>
       </div>
+      <button
+        draggable
+        onDragStart={(e) => { e.dataTransfer.effectAllowed = 'copy'; e.dataTransfer.setData('application/shape', '__subgraph__') }}
+        onClick={() => setPendingAddShape('__subgraph__')}
+        style={{
+        width: "100%", marginTop: 8, padding: "8px 0",
+        background: pendingAddShape === '__subgraph__' ? "#DCFCE7" : "#F0FDF4",
+        border: pendingAddShape === '__subgraph__' ? "2px solid #22C55E" : "1px solid #86EFAC",
+        borderRadius: 8,
+        fontSize: 13, fontWeight: 500, color: "#16A34A", cursor: "pointer",
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+      }}>
+        <span style={{ fontSize: 16 }}>▢</span>
+        {pendingAddShape === '__subgraph__' ? '在画布上框选或点击放置' : '添加子图'}
+      </button>
     </div>
   );
 }
@@ -277,17 +285,27 @@ function GlobalSettingsSection() {
 /* ─── Flowchart Settings (right sidebar — only for flowcharts) ─── */
 function FlowchartSettingsSection() {
   const { direction, curveStyle, setDirection, setCurveStyle } = useGraphEditorStore();
+  const { setMermaid } = useStore();
   const selectStyle: React.CSSProperties = {
     width: "100%", background: "#fff", border: PANEL_BORDER, borderRadius: 8,
     padding: "5px 8px", fontSize: 11, color: "#6B7280", cursor: "pointer",
   };
+
+  const handleDirectionChange = (d: Direction) => {
+    setDirection(d);
+  };
+
+  const handleCurveStyleChange = (c: CurveStyle) => {
+    setCurveStyle(c);
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div>
         <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 4 }}>布局方向</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 4 }}>
           {DIRECTIONS.map((d) => (
-            <FlatButton key={d.value} onClick={() => setDirection(d.value)} active={direction === d.value}
+            <FlatButton key={d.value} onClick={() => handleDirectionChange(d.value)} active={direction === d.value}
               style={{ fontSize: 16, padding: "4px" }}>{d.icon}</FlatButton>
           ))}
         </div>
@@ -296,7 +314,7 @@ function FlowchartSettingsSection() {
         <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 4 }}>曲线样式</div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
           {CURVES.map((c) => (
-            <FlatButton key={c.value} onClick={() => setCurveStyle(c.value)} active={curveStyle === c.value}
+            <FlatButton key={c.value} onClick={() => handleCurveStyleChange(c.value)} active={curveStyle === c.value}
               style={{ fontSize: 10, padding: "4px 8px" }}>{c.label}</FlatButton>
           ))}
         </div>

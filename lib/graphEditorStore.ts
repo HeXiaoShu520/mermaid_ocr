@@ -96,13 +96,15 @@ interface GraphEditorState {
   setHoveredNodeId: (id: string | null) => void
   setEditingNode: (id: string | null) => void
   setEditingEdge: (id: string | null) => void
-  setContextMenu: (menu: { x: number; y: number; nodeId?: string; edgeId?: string } | null) => void
+  setContextMenu: (menu: { x: number; y: number; nodeId?: string; edgeId?: string; subgraphId?: string } | null) => void
   setShowGrid: (show: boolean) => void
   setDirection: (direction: 'TB' | 'LR' | 'BT' | 'RL') => void
   setCurveStyle: (style: 'basis' | 'linear' | 'step' | 'stepBefore' | 'stepAfter' | 'monotoneX' | 'monotoneY') => void
   setPendingAddShape: (shape: string | null) => void
 
   moveSubgraph: (subgraphId: string, dx: number, dy: number) => void
+  updateNodeSubgraph: (nodeId: string, subgraphId: string | undefined) => void
+  resizeSubgraph: (subgraphId: string, patch: { x?: number; y?: number; width?: number; height?: number }) => void
 
   pushHistory: (code: string) => void
   undo: () => string | null
@@ -279,61 +281,81 @@ export const useGraphEditorStore = create<GraphEditorState>((set, get) => ({
   setCurveStyle: (curveStyle) => set({ curveStyle }),
   setPendingAddShape: (shape) => set({ pendingAddShape: shape }),
 
+  updateNodeSubgraph: (nodeId, subgraphId) => {
+    const { nodes, subgraphs } = get()
+    const node = nodes.find(n => n.id === nodeId)
+    if (!node) return
+
+    // 更新节点的 subgraph 字段
+    const updatedNodes = nodes.map(n =>
+      n.id === nodeId ? { ...n, subgraph: subgraphId } : n
+    )
+    // 同步更新 subgraphs 的 nodes 列表，并在新节点加入时扩展边界
+    const updatedSubgraphs = subgraphs.map(sg => {
+      const hasNode = sg.nodes?.includes(nodeId)
+      if (sg.id === subgraphId && !hasNode) {
+        // 新节点加入子图，扩展边界以包裹它
+        const newSg = { ...sg, nodes: [...(sg.nodes || []), nodeId] }
+        if (sg.x !== undefined && sg.y !== undefined && sg.width !== undefined && sg.height !== undefined) {
+          const padding = 20
+          const nodeRight = node.x + node.width + padding
+          const nodeBottom = node.y + node.height + padding
+          const nodeLeft = node.x - padding
+          const nodeTop = node.y - padding
+          const sgRight = sg.x + sg.width
+          const sgBottom = sg.y + sg.height
+          if (nodeLeft < sg.x) { newSg.width = sgRight - nodeLeft; newSg.x = nodeLeft }
+          if (nodeTop < sg.y) { newSg.height = sgBottom - nodeTop; newSg.y = nodeTop }
+          if (nodeRight > sgRight) { newSg.width = (newSg.x !== undefined ? nodeRight - newSg.x : sg.width) }
+          if (nodeBottom > sgBottom) { newSg.height = (newSg.y !== undefined ? nodeBottom - newSg.y : sg.height) }
+        }
+        return newSg
+      }
+      if (sg.id !== subgraphId && hasNode) {
+        return { ...sg, nodes: (sg.nodes || []).filter((nid: string) => nid !== nodeId) }
+      }
+      return sg
+    })
+    set({ nodes: updatedNodes, subgraphs: updatedSubgraphs })
+  },
+
+  resizeSubgraph: (subgraphId, patch) => {
+    set({
+      subgraphs: get().subgraphs.map(sg =>
+        sg.id === subgraphId ? { ...sg, ...patch } : sg
+      ),
+    })
+  },
+
   moveSubgraph: (subgraphId, dx, dy) => {
     const { nodes, subgraphs } = get()
     const sg = subgraphs.find(s => s.id === subgraphId)
-    if (!sg) return
+    if (!sg || sg.x === undefined || sg.y === undefined || sg.width === undefined || sg.height === undefined) return
 
-    // 计算当前子图的边界框
     const sgNodes = nodes.filter(n => n.subgraph === subgraphId)
-    if (sgNodes.length === 0) return
 
-    const padding = 20
-    const titleHeight = 30
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-    sgNodes.forEach(n => {
-      minX = Math.min(minX, n.x)
-      minY = Math.min(minY, n.y)
-      maxX = Math.max(maxX, n.x + n.width)
-      maxY = Math.max(maxY, n.y + n.height)
-    })
     const sgBounds = {
-      x: minX - padding + dx,
-      y: minY - padding - titleHeight + dy,
-      width: maxX - minX + padding * 2,
-      height: maxY - minY + padding * 2 + titleHeight,
+      x: sg.x + dx,
+      y: sg.y + dy,
+      width: sg.width,
+      height: sg.height,
     }
 
     // 碰撞检测：检查是否与其他子图重叠
     for (const otherSg of subgraphs) {
       if (otherSg.id === subgraphId) continue
-      const otherNodes = nodes.filter(n => n.subgraph === otherSg.id)
-      if (otherNodes.length === 0) continue
+      if (otherSg.x === undefined || otherSg.y === undefined || otherSg.width === undefined || otherSg.height === undefined) continue
 
-      let oMinX = Infinity, oMinY = Infinity, oMaxX = -Infinity, oMaxY = -Infinity
-      otherNodes.forEach(n => {
-        oMinX = Math.min(oMinX, n.x)
-        oMinY = Math.min(oMinY, n.y)
-        oMaxX = Math.max(oMaxX, n.x + n.width)
-        oMaxY = Math.max(oMaxY, n.y + n.height)
-      })
-      const otherBounds = {
-        x: oMinX - padding,
-        y: oMinY - padding - titleHeight,
-        width: oMaxX - oMinX + padding * 2,
-        height: oMaxY - oMinY + padding * 2 + titleHeight,
-      }
+      const otherBounds = { x: otherSg.x, y: otherSg.y, width: otherSg.width, height: otherSg.height }
 
       // AABB 碰撞检测
-      const gap = 10 // 子图之间的最小间距
+      const gap = 10
       if (
         sgBounds.x < otherBounds.x + otherBounds.width + gap &&
         sgBounds.x + sgBounds.width > otherBounds.x - gap &&
         sgBounds.y < otherBounds.y + otherBounds.height + gap &&
         sgBounds.y + sgBounds.height > otherBounds.y - gap
       ) {
-        // 碰撞了，推开另一个子图
-        // 计算推开方向：选择重叠最小的方向
         const overlapLeft = (sgBounds.x + sgBounds.width + gap) - otherBounds.x
         const overlapRight = (otherBounds.x + otherBounds.width + gap) - sgBounds.x
         const overlapTop = (sgBounds.y + sgBounds.height + gap) - otherBounds.y
@@ -348,6 +370,7 @@ export const useGraphEditorStore = create<GraphEditorState>((set, get) => ({
         else pushDy = -overlapBottom
 
         // 移动被碰撞的子图的所有节点
+        const otherNodes = nodes.filter(n => n.subgraph === otherSg.id)
         const updatedNodes = [...nodes]
         otherNodes.forEach(otherNode => {
           const idx = updatedNodes.findIndex(n => n.id === otherNode.id)
@@ -364,15 +387,31 @@ export const useGraphEditorStore = create<GraphEditorState>((set, get) => ({
           }
         })
 
-        set({ nodes: updatedNodes })
+        // 同时移动子图自身的存储位置
+        const updatedSubgraphs = subgraphs.map(s => {
+          if (s.id === subgraphId && s.x !== undefined && s.y !== undefined) {
+            return { ...s, x: s.x + dx, y: s.y + dy }
+          }
+          if (s.id === otherSg.id && s.x !== undefined && s.y !== undefined) {
+            return { ...s, x: s.x + pushDx, y: s.y + pushDy }
+          }
+          return s
+        })
+
+        set({ nodes: updatedNodes, subgraphs: updatedSubgraphs })
         return
       }
     }
 
-    // 无碰撞，直接移动子图内所有节点
+    // 无碰撞，直接移动子图内所有节点和子图自身位置
     set({
       nodes: nodes.map(n =>
         n.subgraph === subgraphId ? { ...n, x: n.x + dx, y: n.y + dy } : n
+      ),
+      subgraphs: subgraphs.map(s =>
+        s.id === subgraphId && s.x !== undefined && s.y !== undefined
+          ? { ...s, x: s.x + dx, y: s.y + dy }
+          : s
       ),
     })
   },
@@ -410,35 +449,16 @@ export const useGraphEditorStore = create<GraphEditorState>((set, get) => ({
 
   // ─── Bulk Init ───
   initGraph: (nodes, edges, layout, subgraphs = []) => {
-    set({
-      nodes,
-      edges,
-      subgraphs,
-      layout,
-      selectedNodeIds: new Set(),
-      selectedEdgeId: null,
-      selectedSubgraphId: null,
-    })
-    // 初始化后解决子图重叠
-    if (subgraphs.length > 1) {
-      setTimeout(() => get().resolveSubgraphOverlaps(), 0)
-    }
-  },
-
-  resolveSubgraphOverlaps: () => {
-    const { nodes, subgraphs } = get()
-    if (subgraphs.length < 2) return
-
+    // 计算子图的初始边界（从子节点推导）
     const padding = 20
     const titleHeight = 30
-    const gap = 10
-    let updatedNodes = [...nodes]
-    let changed = false
+    const initializedSubgraphs = subgraphs.map(sg => {
+      if (sg.x !== undefined && sg.y !== undefined && sg.width !== undefined && sg.height !== undefined) {
+        return sg // 已有尺寸，保留
+      }
+      const sgNodes = nodes.filter(n => n.subgraph === sg.id)
+      if (sgNodes.length === 0) return { ...sg, x: 0, y: 0, width: 200, height: 120 }
 
-    // 计算每个子图的边界框
-    const getBounds = (sgId: string) => {
-      const sgNodes = updatedNodes.filter(n => n.subgraph === sgId)
-      if (sgNodes.length === 0) return null
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
       sgNodes.forEach(n => {
         minX = Math.min(minX, n.x)
@@ -447,20 +467,52 @@ export const useGraphEditorStore = create<GraphEditorState>((set, get) => ({
         maxY = Math.max(maxY, n.y + n.height)
       })
       return {
+        ...sg,
         x: minX - padding,
         y: minY - padding - titleHeight,
         width: maxX - minX + padding * 2,
         height: maxY - minY + padding * 2 + titleHeight,
       }
+    })
+
+    set({
+      nodes,
+      edges,
+      subgraphs: initializedSubgraphs,
+      layout,
+      selectedNodeIds: new Set(),
+      selectedEdgeId: null,
+      selectedSubgraphId: null,
+    })
+    // 初始化后解决子图重叠
+    if (initializedSubgraphs.length > 1) {
+      setTimeout(() => get().resolveSubgraphOverlaps(), 0)
+    }
+  },
+
+  resolveSubgraphOverlaps: () => {
+    const { nodes, subgraphs } = get()
+    if (subgraphs.length < 2) return
+
+    const gap = 10
+    let updatedNodes = [...nodes]
+    let updatedSubgraphs = [...subgraphs]
+    let changed = false
+
+    // 使用子图自身存储的边界
+    const getBounds = (sgId: string) => {
+      const sg = updatedSubgraphs.find(s => s.id === sgId)
+      if (!sg || sg.x === undefined || sg.y === undefined || sg.width === undefined || sg.height === undefined) return null
+      return { x: sg.x, y: sg.y, width: sg.width, height: sg.height }
     }
 
     // 多轮迭代解决重叠（最多 10 轮）
     for (let iter = 0; iter < 10; iter++) {
       let iterChanged = false
-      for (let i = 0; i < subgraphs.length; i++) {
-        for (let j = i + 1; j < subgraphs.length; j++) {
-          const boundsA = getBounds(subgraphs[i].id)
-          const boundsB = getBounds(subgraphs[j].id)
+      for (let i = 0; i < updatedSubgraphs.length; i++) {
+        for (let j = i + 1; j < updatedSubgraphs.length; j++) {
+          const boundsA = getBounds(updatedSubgraphs[i].id)
+          const boundsB = getBounds(updatedSubgraphs[j].id)
           if (!boundsA || !boundsB) continue
 
           // AABB 碰撞检测
@@ -484,11 +536,15 @@ export const useGraphEditorStore = create<GraphEditorState>((set, get) => ({
             else if (minOverlap === overlapTop) pushDy = overlapTop
             else pushDy = -overlapBottom
 
-            // 推开子图 B 的所有节点
+            // 推开子图 B 的所有节点和子图自身位置
+            const sgBId = updatedSubgraphs[j].id
             updatedNodes = updatedNodes.map(n =>
-              n.subgraph === subgraphs[j].id
-                ? { ...n, x: n.x + pushDx, y: n.y + pushDy }
-                : n
+              n.subgraph === sgBId ? { ...n, x: n.x + pushDx, y: n.y + pushDy } : n
+            )
+            updatedSubgraphs = updatedSubgraphs.map(s =>
+              s.id === sgBId && s.x !== undefined && s.y !== undefined
+                ? { ...s, x: s.x + pushDx, y: s.y + pushDy }
+                : s
             )
             iterChanged = true
             changed = true
@@ -499,7 +555,7 @@ export const useGraphEditorStore = create<GraphEditorState>((set, get) => ({
     }
 
     if (changed) {
-      set({ nodes: updatedNodes })
+      set({ nodes: updatedNodes, subgraphs: updatedSubgraphs })
     }
   },
 }))

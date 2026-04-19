@@ -37,6 +37,10 @@ export interface Subgraph {
   id: string
   label: string
   nodes: string[]  // 节点 ID 列表
+  x?: number
+  y?: number
+  width?: number
+  height?: number
 }
 
 export interface GraphData {

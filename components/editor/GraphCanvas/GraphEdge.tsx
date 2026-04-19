@@ -188,9 +188,9 @@ export default function GraphEdge({ edge, nodes, parallelIndex = 0, parallelCoun
         let dist = Math.hypot(end.x - start.x, end.y - start.y)
 
         const endIsVert = end.side === 'top' || end.side === 'bottom'
-        // 相对位置打折
-        if (isVerticalLayout && endIsVert) dist *= 0.8
-        if (!isVerticalLayout && !endIsVert) dist *= 0.8
+        // 相对位置打折（1 = 不打折）
+        if (isVerticalLayout && endIsVert) dist *= 1
+        if (!isVerticalLayout && !endIsVert) dist *= 1
         // 布局方向打折
         if (isVerticalDirection && endIsVert) dist *= 0.8
         if (!isVerticalDirection && !endIsVert) dist *= 0.8

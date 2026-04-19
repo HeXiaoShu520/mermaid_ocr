@@ -88,6 +88,7 @@ export default function GraphCanvas({}: GraphCanvasProps) {
     selectedNodeIds,
     removeEdge,
     removeNode,
+    addSubgraph,
   } = useGraphEditorStore()
 
   // ─── Pan and Zoom ───
@@ -161,24 +162,30 @@ export default function GraphCanvas({}: GraphCanvasProps) {
 
   const handleMouseUp = useCallback(() => {
     if (isBoxSelecting) {
-      // 创建节点
       const width = Math.abs(boxEnd.x - boxStart.x)
       const height = Math.abs(boxEnd.y - boxStart.y)
       const x = Math.min(boxStart.x, boxEnd.x)
       const y = Math.min(boxStart.y, boxEnd.y)
 
       if (width > 10 && height > 10) {
-        const nodeId = generateNodeId(pendingAddShape || 'rectangle', nodes)
-        const newNode = {
-          id: nodeId,
-          label: nodeId,
-          shape: pendingAddShape as any,
-          x,
-          y,
-          width,
-          height,
+        if (pendingAddShape === '__subgraph__') {
+          // 创建子图
+          const id = `sg_${Date.now()}`
+          addSubgraph({ id, label: '子图', nodes: [], x, y, width, height })
+        } else {
+          // 创建节点
+          const nodeId = generateNodeId(pendingAddShape || 'rectangle', nodes)
+          const newNode = {
+            id: nodeId,
+            label: nodeId,
+            shape: pendingAddShape as any,
+            x,
+            y,
+            width,
+            height,
+          }
+          addNode(newNode)
         }
-        addNode(newNode)
       }
 
       setIsBoxSelecting(false)
@@ -186,7 +193,7 @@ export default function GraphCanvas({}: GraphCanvasProps) {
     }
 
     setIsPanning(false)
-  }, [isBoxSelecting, boxStart, boxEnd, pendingAddShape, addNode, setPendingAddShape])
+  }, [isBoxSelecting, boxStart, boxEnd, pendingAddShape, addNode, addSubgraph, setPendingAddShape, nodes])
 
   const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault()
@@ -224,7 +231,30 @@ export default function GraphCanvas({}: GraphCanvasProps) {
   }, [moveNode])
 
   const handleNodeDragEnd = useCallback((nodeId: string) => {
-    // 拖拽结束
+    // 拖拽结束后检查节点是否进入/离开子图
+    const { nodes: allNodes, subgraphs, updateNodeSubgraph } = useGraphEditorStore.getState()
+    const node = allNodes.find(n => n.id === nodeId)
+    if (!node) return
+
+    const nodeCx = node.x + node.width / 2
+    const nodeCy = node.y + node.height / 2
+
+    let targetSubgraph: string | undefined = undefined
+
+    for (const sg of subgraphs) {
+      if (sg.x === undefined || sg.y === undefined || sg.width === undefined || sg.height === undefined) continue
+
+      // 使用子图自身存储的边界
+      if (nodeCx >= sg.x && nodeCx <= sg.x + sg.width && nodeCy >= sg.y && nodeCy <= sg.y + sg.height) {
+        targetSubgraph = sg.id
+        break
+      }
+    }
+
+    // 如果节点的子图归属发生了变化，更新它
+    if (node.subgraph !== targetSubgraph) {
+      updateNodeSubgraph(nodeId, targetSubgraph)
+    }
   }, [])
 
   // ─── Canvas Click (取消连线或清除选择或添加节点) ───
@@ -239,30 +269,34 @@ export default function GraphCanvas({}: GraphCanvasProps) {
     if (connecting) {
       cancelConnection()
     } else if (pendingAddShape) {
-      // 添加新节点
+      // 添加新节点或子图
       const rect = containerRef.current?.getBoundingClientRect()
       if (rect) {
         const x = (e.clientX - rect.left - viewTransform.x) / viewTransform.scale
         const y = (e.clientY - rect.top - viewTransform.y) / viewTransform.scale
 
-        const nodeId = generateNodeId(pendingAddShape || 'rectangle', nodes)
-        const newNode = {
-          id: nodeId,
-          label: nodeId,
-          shape: pendingAddShape as any,
-          x: x - 60, // 居中
-          y: y - 20,
-          width: 120,
-          height: 40,
+        if (pendingAddShape === '__subgraph__') {
+          const id = `sg_${Date.now()}`
+          addSubgraph({ id, label: '子图', nodes: [], x: x - 100, y: y - 60, width: 200, height: 120 })
+        } else {
+          const nodeId = generateNodeId(pendingAddShape || 'rectangle', nodes)
+          const newNode = {
+            id: nodeId,
+            label: nodeId,
+            shape: pendingAddShape as any,
+            x: x - 60, // 居中
+            y: y - 20,
+            width: 120,
+            height: 40,
+          }
+          addNode(newNode)
         }
-
-        addNode(newNode)
         setPendingAddShape(null)
       }
     } else {
       clearSelection()
     }
-  }, [connecting, cancelConnection, clearSelection, pendingAddShape, setPendingAddShape, addNode, viewTransform])
+  }, [connecting, cancelConnection, clearSelection, pendingAddShape, setPendingAddShape, addNode, addSubgraph, viewTransform])
 
   // ─── Handle 连线完成 ───
   const handleNodeClick = useCallback((nodeId: string) => {
@@ -310,18 +344,22 @@ export default function GraphCanvas({}: GraphCanvasProps) {
       const x = (e.clientX - rect.left - viewTransform.x) / viewTransform.scale
       const y = (e.clientY - rect.top - viewTransform.y) / viewTransform.scale
 
-      const nodeId = generateNodeId(shape || 'rectangle', nodes)
-      const newNode = {
-        id: nodeId,
-        label: nodeId,
-        shape: shape as any,
-        x: x - 60,
-        y: y - 20,
-        width: 120,
-        height: 40,
+      if (shape === '__subgraph__') {
+        const id = `sg_${Date.now()}`
+        addSubgraph({ id, label: '子图', nodes: [], x: x - 100, y: y - 60, width: 200, height: 120 })
+      } else {
+        const nodeId = generateNodeId(shape || 'rectangle', nodes)
+        const newNode = {
+          id: nodeId,
+          label: nodeId,
+          shape: shape as any,
+          x: x - 60,
+          y: y - 20,
+          width: 120,
+          height: 40,
+        }
+        addNode(newNode)
       }
-
-      addNode(newNode)
     }
   }, [viewTransform, addNode])
 
