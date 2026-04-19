@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   useSeqEditorStore,
   SEQ_HEAD_H, SEQ_ROW_H, SEQ_PAD_X, SEQ_COL_W,
@@ -20,7 +20,14 @@ export default function SequenceCanvas() {
     clearSelection, setContextMenu,
     selectedMessageId, selectedParticipantId, selectedFragmentId,
     removeMessage, removeParticipant, removeFragment,
+    pendingAddType, setPendingAddType,
+    addParticipant, addFragment,
   } = useSeqEditorStore()
+
+  // ─── 框选状态 ───
+  const [isBoxSelecting, setIsBoxSelecting] = useState(false)
+  const [boxStart, setBoxStart] = useState({ x: 0, y: 0 })
+  const [boxEnd, setBoxEnd] = useState({ x: 0, y: 0 })
 
   // ─── 画布尺寸 ───
   const maxOrder = messages.length > 0 ? Math.max(...messages.map(m => m.order)) : 0
@@ -36,22 +43,46 @@ export default function SequenceCanvas() {
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement
-    // 只在 SVG 背景或容器上触发 pan
+    // 只在 SVG 背景或容器上触发
     if (target.tagName === 'svg' || target === e.currentTarget || target.classList.contains('seq-bg')) {
       if (connecting) {
-        // 点击空白取消连线
         cancelConnection()
         return
       }
+
+      // 片段框选模式
+      const isFragmentType = pendingAddType && !['participant', 'actor'].includes(pendingAddType)
+      if (isFragmentType && e.button === 0) {
+        const rect = containerRef.current?.getBoundingClientRect()
+        if (rect) {
+          const x = (e.clientX - rect.left - viewTransform.x) / viewTransform.scale
+          const y = (e.clientY - rect.top - viewTransform.y) / viewTransform.scale
+          setIsBoxSelecting(true)
+          setBoxStart({ x, y })
+          setBoxEnd({ x, y })
+          e.preventDefault()
+          return
+        }
+      }
+
       if (e.button === 0 || e.button === 1) {
         isPanningRef.current = true
         panStartRef.current = { x: e.clientX - viewTransform.x, y: e.clientY - viewTransform.y }
         e.preventDefault()
       }
     }
-  }, [viewTransform, connecting, cancelConnection])
+  }, [viewTransform, connecting, cancelConnection, pendingAddType])
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (isBoxSelecting) {
+      const rect = containerRef.current?.getBoundingClientRect()
+      if (rect) {
+        const x = (e.clientX - rect.left - viewTransform.x) / viewTransform.scale
+        const y = (e.clientY - rect.top - viewTransform.y) / viewTransform.scale
+        setBoxEnd({ x, y })
+      }
+      return
+    }
     if (isPanningRef.current) {
       setViewTransform({
         x: e.clientX - panStartRef.current.x,
@@ -67,9 +98,41 @@ export default function SequenceCanvas() {
         updateConnectionMouse(x, y)
       }
     }
-  }, [viewTransform, setViewTransform, connecting, updateConnectionMouse])
+  }, [isBoxSelecting, viewTransform, setViewTransform, connecting, updateConnectionMouse])
 
   const handleMouseUp = useCallback((e: React.MouseEvent) => {
+    // 片段框选完成
+    if (isBoxSelecting && pendingAddType) {
+      const minY = Math.min(boxStart.y, boxEnd.y)
+      const maxY = Math.max(boxStart.y, boxEnd.y)
+      const height = maxY - minY
+
+      if (height > 10) {
+        // y 坐标映射到消息 order
+        const startOrder = Math.max(0, Math.round((minY - SEQ_HEAD_H) / SEQ_ROW_H))
+        const endOrder = Math.max(startOrder, Math.round((maxY - SEQ_HEAD_H) / SEQ_ROW_H))
+
+        const fragType = pendingAddType as 'loop' | 'alt' | 'opt' | 'par' | 'critical' | 'break' | 'rect'
+        const frag: any = {
+          id: `frag-${Date.now()}`,
+          type: fragType,
+          label: fragType === 'loop' ? '条件' : fragType === 'alt' ? '条件' : fragType === 'opt' ? '条件' : fragType === 'par' ? '并行' : fragType === 'critical' ? '关键' : '中断',
+          coverParticipants: participants.map(p => p.id),
+          startOrder,
+          endOrder,
+        }
+        // alt/par 需要 sections
+        if (fragType === 'alt') frag.sections = [{ label: '否则' }]
+        if (fragType === 'par') frag.sections = [{ label: '并行' }]
+
+        addFragment(frag)
+      }
+
+      setIsBoxSelecting(false)
+      setPendingAddType(null)
+      return
+    }
+
     isPanningRef.current = false
     // 如果正在连线，检查是否在某个参与者的生命线上释放
     if (connecting) {
@@ -90,14 +153,30 @@ export default function SequenceCanvas() {
         }
       }
     }
-  }, [connecting, participants, viewTransform, endConnection, cancelConnection])
+  }, [isBoxSelecting, boxStart, boxEnd, pendingAddType, participants, connecting, viewTransform, endConnection, cancelConnection, addFragment, setPendingAddType])
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement
     if (target.tagName === 'svg' || target === e.currentTarget || target.classList.contains('seq-bg')) {
+      // 参与者点击放置
+      if (pendingAddType === 'participant' || pendingAddType === 'actor') {
+        const rect = containerRef.current?.getBoundingClientRect()
+        if (rect) {
+          const clickX = (e.clientX - rect.left - viewTransform.x) / viewTransform.scale
+          // 计算 x：追加到最右侧，或对齐到点击位置
+          const rightMost = participants.length > 0
+            ? Math.max(...participants.map(p => p.x)) + SEQ_COL_W
+            : SEQ_PAD_X
+          const x = participants.length === 0 ? SEQ_PAD_X : Math.max(rightMost, Math.round(clickX / SEQ_COL_W) * SEQ_COL_W)
+          const id = `P${participants.length + 1}`
+          addParticipant({ id, label: id, x, type: pendingAddType })
+          setPendingAddType(null)
+          return
+        }
+      }
       clearSelection()
     }
-  }, [clearSelection])
+  }, [clearSelection, pendingAddType, participants, viewTransform, addParticipant, setPendingAddType])
 
   // ─── Zoom ───
   useEffect(() => {
@@ -126,7 +205,9 @@ export default function SequenceCanvas() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (connecting) cancelConnection()
+        if (isBoxSelecting) { setIsBoxSelecting(false); setPendingAddType(null) }
+        else if (pendingAddType) setPendingAddType(null)
+        else if (connecting) cancelConnection()
         else clearSelection()
       }
       if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -139,7 +220,7 @@ export default function SequenceCanvas() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [connecting, cancelConnection, clearSelection, selectedMessageId, selectedParticipantId, selectedFragmentId, removeMessage, removeParticipant, removeFragment])
+  }, [connecting, cancelConnection, clearSelection, selectedMessageId, selectedParticipantId, selectedFragmentId, removeMessage, removeParticipant, removeFragment, pendingAddType, setPendingAddType, isBoxSelecting])
 
   // ─── 右键菜单 ───
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
@@ -150,6 +231,30 @@ export default function SequenceCanvas() {
     }
   }, [setContextMenu])
 
+  // ─── 拖拽放置参与者 ───
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes('application/seq-element')) {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'copy'
+    }
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    const type = e.dataTransfer.getData('application/seq-element')
+    if (!type || (type !== 'participant' && type !== 'actor')) return
+
+    const rect = containerRef.current?.getBoundingClientRect()
+    if (!rect) return
+
+    const rightMost = participants.length > 0
+      ? Math.max(...participants.map(p => p.x)) + SEQ_COL_W
+      : SEQ_PAD_X
+    const x = participants.length === 0 ? SEQ_PAD_X : rightMost
+    const id = `P${participants.length + 1}`
+    addParticipant({ id, label: id, x, type: type as 'participant' | 'actor' })
+  }, [participants, addParticipant])
+
   return (
     <div
       ref={containerRef}
@@ -159,7 +264,7 @@ export default function SequenceCanvas() {
         overflow: 'hidden',
         position: 'relative',
         background: 'white',
-        cursor: isPanningRef.current ? 'grabbing' : (connecting ? 'crosshair' : 'default'),
+        cursor: isPanningRef.current ? 'grabbing' : (connecting || pendingAddType ? 'crosshair' : 'default'),
         userSelect: 'none',
       }}
       onMouseDown={handleMouseDown}
@@ -167,6 +272,8 @@ export default function SequenceCanvas() {
       onMouseUp={handleMouseUp}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
     >
       <div
         style={{
@@ -235,6 +342,21 @@ export default function SequenceCanvas() {
               />
             )
           })()}
+
+          {/* 框选矩形 */}
+          {isBoxSelecting && (
+            <rect
+              x={Math.min(boxStart.x, boxEnd.x)}
+              y={Math.min(boxStart.y, boxEnd.y)}
+              width={Math.abs(boxEnd.x - boxStart.x)}
+              height={Math.abs(boxEnd.y - boxStart.y)}
+              fill="rgba(99, 102, 241, 0.1)"
+              stroke="#6366f1"
+              strokeWidth={1}
+              strokeDasharray="4,4"
+              style={{ pointerEvents: 'none' }}
+            />
+          )}
         </svg>
       </div>
 
@@ -248,7 +370,7 @@ export default function SequenceCanvas() {
         }}>
           <div style={{ fontSize: 72, lineHeight: 1 }}>🎭</div>
           <div style={{ fontSize: 13, fontWeight: 500, color: '#6b7280' }}>时序图画布</div>
-          <div style={{ fontSize: 12, color: '#9ca3af' }}>右键添加参与者，或点击上方「读取代码」</div>
+          <div style={{ fontSize: 12, color: '#9ca3af' }}>从右侧面板添加参与者，或点击上方「读取代码」</div>
         </div>
       )}
 

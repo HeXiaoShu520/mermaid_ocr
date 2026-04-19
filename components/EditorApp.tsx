@@ -698,30 +698,75 @@ function StateDiagramSettingsSection() {
 }
 
 function SequenceDiagramSettingsSection() {
-  const { pendingAddShape, setPendingAddShape } = useSvgEditorStore();
+  const { pendingAddType, setPendingAddType } = useSeqEditorStore();
+
+  const PARTICIPANTS = [
+    { type: 'participant' as const, label: '参与者', icon: '▭' },
+    { type: 'actor' as const, label: '角色', icon: '👤' },
+  ];
+
+  const FRAGMENTS = [
+    { type: 'loop' as const, label: 'loop', color: '#93c5fd' },
+    { type: 'alt' as const, label: 'alt', color: '#fcd34d' },
+    { type: 'opt' as const, label: 'opt', color: '#6ee7b7' },
+    { type: 'par' as const, label: 'par', color: '#c4b5fd' },
+    { type: 'critical' as const, label: 'critical', color: '#fca5a5' },
+    { type: 'break' as const, label: 'break', color: '#d1d5db' },
+  ];
+
+  const handleDragStart = (e: React.DragEvent, type: string) => {
+    e.dataTransfer.effectAllowed = 'copy';
+    e.dataTransfer.setData('application/seq-element', type);
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div>
-        <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 4 }}>参与者形状</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 4 }}>
-          <FlatButton
-            onClick={() => setPendingAddShape('rectangle')}
-            active={pendingAddShape === 'rectangle'}
-            style={{ fontSize: 10, padding: "6px 8px", justifyContent: "flex-start" }}>
-            ▭ 参与者（矩形）
-          </FlatButton>
+        <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 4 }}>参与者</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
+          {PARTICIPANTS.map(p => (
+            <div
+              key={p.type}
+              draggable
+              onDragStart={(e) => handleDragStart(e, p.type)}
+              style={{ cursor: 'grab' }}
+            >
+              <FlatButton
+                onClick={() => setPendingAddType(pendingAddType === p.type ? null : p.type)}
+                active={pendingAddType === p.type}
+                style={{ fontSize: 10, padding: "6px 8px", width: '100%', pointerEvents: 'auto' }}>
+                {p.icon} {p.label}
+              </FlatButton>
+            </div>
+          ))}
         </div>
       </div>
       <div>
-        <div style={{ fontSize: 10, color: "#6B7280", lineHeight: 1.4, marginTop: 4 }}>消息类型：</div>
-        <div style={{ fontSize: 9, color: "#9CA3AF", lineHeight: 1.5, fontFamily: "monospace", marginTop: 4 }}>
-          -&gt;&gt; 同步消息（实线箭头）<br />
-          --&gt;&gt; 异步消息（虚线箭头）<br />
-          -) 开放箭头（实线）<br />
-          --) 开放箭头（虚线）
+        <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 4 }}>片段（点击后框选消息范围）</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4 }}>
+          {FRAGMENTS.map(f => (
+            <FlatButton
+              key={f.type}
+              onClick={() => setPendingAddType(pendingAddType === f.type ? null : f.type)}
+              active={pendingAddType === f.type}
+              style={{ fontSize: 10, padding: "5px 6px", borderLeft: `3px solid ${f.color}` }}>
+              {f.label}
+            </FlatButton>
+          ))}
         </div>
       </div>
+      {pendingAddType && (
+        <div style={{ fontSize: 10, color: "#6366f1", textAlign: "center", padding: "4px 0" }}>
+          {['participant', 'actor'].includes(pendingAddType)
+            ? '点击画布放置参与者，或拖拽到画布'
+            : '在画布上框选消息范围创建片段'}
+        </div>
+      )}
+      <FlatButton
+        onClick={() => setPendingAddType(null)}
+        style={{ fontSize: 10, padding: "4px 8px", color: "#9CA3AF", display: pendingAddType ? 'block' : 'none' }}>
+        取消选择
+      </FlatButton>
     </div>
   );
 }

@@ -74,6 +74,9 @@ interface SeqEditorState {
   // 设置
   showGrid: boolean
 
+  // 待添加元素
+  pendingAddType: 'participant' | 'actor' | SeqFragment['type'] | null
+
   // ─── Actions ───
 
   // 参与者
@@ -114,6 +117,7 @@ interface SeqEditorState {
   setEditingParticipant: (id: string | null) => void
   setEditingMessage: (id: string | null) => void
   setContextMenu: (menu: SeqEditorState['contextMenu']) => void
+  setPendingAddType: (type: SeqEditorState['pendingAddType']) => void
 
   // 初始化
   initSeqGraph: (participants: SeqParticipant[], messages: SeqMessage[], fragments?: SeqFragment[]) => void
@@ -142,6 +146,7 @@ export const useSeqEditorStore = create<SeqEditorState>((set, get) => ({
   editingMessageId: null,
   contextMenu: null,
   showGrid: false,
+  pendingAddType: null,
 
   // ─── Participant Actions ───
   addParticipant: (p) => set({ participants: [...get().participants, p] }),
@@ -319,6 +324,7 @@ export const useSeqEditorStore = create<SeqEditorState>((set, get) => ({
   setEditingParticipant: (id) => set({ editingParticipantId: id }),
   setEditingMessage: (id) => set({ editingMessageId: id }),
   setContextMenu: (menu) => set({ contextMenu: menu }),
+  setPendingAddType: (type) => set({ pendingAddType: type }),
 
   // ─── Init ───
   initSeqGraph: (participants, messages, fragments = []) => {
