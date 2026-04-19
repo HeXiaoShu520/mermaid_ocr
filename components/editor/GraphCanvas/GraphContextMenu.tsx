@@ -89,7 +89,19 @@ export default function GraphContextMenu() {
           onMouseEnter={(e) => (e.currentTarget.style.background = '#f5f3ff')}
           onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
         >
-          <span>🤖</span>
+          <span style={{ display: 'inline-flex' }}>
+            <svg width="16" height="16" viewBox="0 0 100 100" style={{ borderRadius: '50%' }}>
+              <defs><linearGradient id="ctxAiBg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#6366f1" /><stop offset="100%" stopColor="#8b5cf6" /></linearGradient></defs>
+              <circle cx="50" cy="50" r="50" fill="url(#ctxAiBg)" />
+              <circle cx="50" cy="50" r="10" fill="#fff" /><circle cx="50" cy="50" r="6" fill="#6366f1" />
+              <circle cx="50" cy="22" r="5" fill="rgba(255,255,255,0.9)" />
+              <circle cx="25.8" cy="64" r="5" fill="rgba(255,255,255,0.9)" />
+              <circle cx="74.2" cy="64" r="5" fill="rgba(255,255,255,0.9)" />
+              <line x1="50" y1="44" x2="50" y2="27" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
+              <line x1="44" y1="53" x2="30.5" y2="61" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
+              <line x1="56" y1="53" x2="69.5" y2="61" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
+            </svg>
+          </span>
           <span>引用到 AI</span>
         </button>
       )}

@@ -33,43 +33,32 @@ function createRefTagHTML(label: string): string {
   return `<span contenteditable="false" data-ref-label="${label}" style="display:inline-flex;align-items:center;gap:2px;background:#e0e7ff;color:#4338ca;padding:2px 6px;border-radius:4px;font-size:12px;margin:0 2px;user-select:all;vertical-align:middle;cursor:default;">📌 ${label}</span>`
 }
 
-// 二次元妹妹头像 SVG
+// AI 助手头像 SVG
 function AiAvatar({ size = 28 }: { size?: number }) {
+  const uid = `aiAvatar_${size}`
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" style={{ borderRadius: '50%', flexShrink: 0 }}>
-      {/* 背景 */}
-      <circle cx="50" cy="50" r="50" fill="url(#avatarBg)" />
       <defs>
-        <linearGradient id="avatarBg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#c4b5fd" />
-          <stop offset="100%" stopColor="#f9a8d4" />
+        <linearGradient id={`${uid}_bg`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#6366f1" />
+          <stop offset="100%" stopColor="#8b5cf6" />
         </linearGradient>
       </defs>
-      {/* 头发 */}
-      <ellipse cx="50" cy="42" rx="32" ry="30" fill="#4a3728" />
-      <ellipse cx="50" cy="38" rx="30" ry="22" fill="#5c4033" />
-      {/* 刘海 */}
-      <path d="M22 42 Q30 20 50 22 Q70 20 78 42 Q70 32 50 30 Q30 32 22 42Z" fill="#4a3728" />
-      {/* 脸 */}
-      <ellipse cx="50" cy="52" rx="22" ry="24" fill="#fde8d8" />
-      {/* 腮红 */}
-      <ellipse cx="34" cy="58" rx="6" ry="3.5" fill="#fca5a5" opacity="0.45" />
-      <ellipse cx="66" cy="58" rx="6" ry="3.5" fill="#fca5a5" opacity="0.45" />
-      {/* 眼睛 */}
-      <ellipse cx="40" cy="52" rx="5" ry="6" fill="#fff" />
-      <ellipse cx="60" cy="52" rx="5" ry="6" fill="#fff" />
-      <ellipse cx="41" cy="53" rx="3.5" ry="4.5" fill="#6d28d9" />
-      <ellipse cx="61" cy="53" rx="3.5" ry="4.5" fill="#6d28d9" />
-      <ellipse cx="42" cy="51" rx="1.5" ry="1.8" fill="#fff" />
-      <ellipse cx="62" cy="51" rx="1.5" ry="1.8" fill="#fff" />
-      {/* 嘴巴 */}
-      <path d="M46 62 Q50 66 54 62" fill="none" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" />
-      {/* 头发侧边 */}
-      <path d="M22 42 Q18 55 24 70" fill="#4a3728" stroke="none" />
-      <path d="M78 42 Q82 55 76 70" fill="#4a3728" stroke="none" />
-      {/* 发饰蝴蝶结 */}
-      <path d="M70 30 Q78 24 76 32 Q78 40 70 34Z" fill="#f472b6" />
-      <circle cx="70" cy="32" r="2" fill="#ec4899" />
+      {/* 背景圆 */}
+      <circle cx="50" cy="50" r="50" fill={`url(#${uid}_bg)`} />
+      {/* 外环 */}
+      <circle cx="50" cy="50" r="32" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="2" />
+      {/* 中心节点 */}
+      <circle cx="50" cy="50" r="10" fill="#fff" />
+      <circle cx="50" cy="50" r="6" fill="#6366f1" />
+      {/* 三个轨道节点 */}
+      <circle cx="50" cy="22" r="5" fill="rgba(255,255,255,0.9)" />
+      <circle cx="25.8" cy="64" r="5" fill="rgba(255,255,255,0.9)" />
+      <circle cx="74.2" cy="64" r="5" fill="rgba(255,255,255,0.9)" />
+      {/* 连接线 */}
+      <line x1="50" y1="44" x2="50" y2="27" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
+      <line x1="44" y1="53" x2="30.5" y2="61" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
+      <line x1="56" y1="53" x2="69.5" y2="61" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
     </svg>
   )
 }
