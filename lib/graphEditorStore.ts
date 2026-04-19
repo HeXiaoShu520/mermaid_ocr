@@ -332,7 +332,8 @@ export const useGraphEditorStore = create<GraphEditorState>((set, get) => ({
     const sg = subgraphs.find(s => s.id === subgraphId)
     if (!sg || sg.x === undefined || sg.y === undefined || sg.width === undefined || sg.height === undefined) return
 
-    const sgNodes = nodes.filter(n => n.subgraph === subgraphId)
+    const sgNodeIds = new Set(sg.nodes || [])
+    const isInSubgraph = (n: NodeState) => n.subgraph === subgraphId || sgNodeIds.has(n.id)
 
     const sgBounds = {
       x: sg.x + dx,
@@ -370,7 +371,8 @@ export const useGraphEditorStore = create<GraphEditorState>((set, get) => ({
         else pushDy = -overlapBottom
 
         // 移动被碰撞的子图的所有节点
-        const otherNodes = nodes.filter(n => n.subgraph === otherSg.id)
+        const otherNodeIds = new Set(otherSg.nodes || [])
+        const otherNodes = nodes.filter(n => n.subgraph === otherSg.id || otherNodeIds.has(n.id))
         const updatedNodes = [...nodes]
         otherNodes.forEach(otherNode => {
           const idx = updatedNodes.findIndex(n => n.id === otherNode.id)
@@ -380,7 +382,8 @@ export const useGraphEditorStore = create<GraphEditorState>((set, get) => ({
         })
 
         // 同时移动当前子图的节点
-        sgNodes.forEach(sgNode => {
+        const currentSgNodes = nodes.filter(isInSubgraph)
+        currentSgNodes.forEach(sgNode => {
           const idx = updatedNodes.findIndex(n => n.id === sgNode.id)
           if (idx !== -1) {
             updatedNodes[idx] = { ...updatedNodes[idx], x: updatedNodes[idx].x + dx, y: updatedNodes[idx].y + dy }
@@ -406,7 +409,7 @@ export const useGraphEditorStore = create<GraphEditorState>((set, get) => ({
     // 无碰撞，直接移动子图内所有节点和子图自身位置
     set({
       nodes: nodes.map(n =>
-        n.subgraph === subgraphId ? { ...n, x: n.x + dx, y: n.y + dy } : n
+        isInSubgraph(n) ? { ...n, x: n.x + dx, y: n.y + dy } : n
       ),
       subgraphs: subgraphs.map(s =>
         s.id === subgraphId && s.x !== undefined && s.y !== undefined
@@ -537,12 +540,13 @@ export const useGraphEditorStore = create<GraphEditorState>((set, get) => ({
             else pushDy = -overlapBottom
 
             // 推开子图 B 的所有节点和子图自身位置
-            const sgBId = updatedSubgraphs[j].id
+            const sgB = updatedSubgraphs[j]
+            const sgBNodeIds = new Set(sgB.nodes || [])
             updatedNodes = updatedNodes.map(n =>
-              n.subgraph === sgBId ? { ...n, x: n.x + pushDx, y: n.y + pushDy } : n
+              (n.subgraph === sgB.id || sgBNodeIds.has(n.id)) ? { ...n, x: n.x + pushDx, y: n.y + pushDy } : n
             )
             updatedSubgraphs = updatedSubgraphs.map(s =>
-              s.id === sgBId && s.x !== undefined && s.y !== undefined
+              s.id === sgB.id && s.x !== undefined && s.y !== undefined
                 ? { ...s, x: s.x + pushDx, y: s.y + pushDy }
                 : s
             )

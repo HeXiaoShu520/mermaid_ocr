@@ -20,6 +20,7 @@ import MermaidPreview from "@/components/editor/MermaidPreview";
 import VisualEditor from "@/components/editor/VisualEditor";
 import { useAiStore } from "@/lib/aiStore";
 import { dagreLayout } from "@/lib/graphLayout";
+import { useSeqEditorStore } from "@/lib/seqEditorStore";
 
 mermaid.initialize({ startOnLoad: false });
 
@@ -360,6 +361,13 @@ function LeftPanel() {
   const [error, setError] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<Favorite[]>([]);
 
+  // 设置代码并清空所有画布状态
+  const setMermaidAndClear = useCallback((code: string) => {
+    useGraphEditorStore.getState().initGraph([], [], null, [])
+    useSeqEditorStore.getState().initSeqGraph([], [], [])
+    setMermaid(code)
+  }, [setMermaid])
+
   // Initialize favorites on mount
   useEffect(() => {
     initializeSampleFavorites();
@@ -377,13 +385,13 @@ function LeftPanel() {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      setMermaid(data.mermaid);
+      setMermaidAndClear(data.mermaid);
     } catch (err: any) { setError(err.message); }
     finally { setLoading(false); }
   };
 
   const handleLoadFavorite = (fav: Favorite) => {
-    setMermaid(fav.code);
+    setMermaidAndClear(fav.code);
   };
 
   const handleRenameFavorite = (fav: Favorite) => {
@@ -426,7 +434,7 @@ function LeftPanel() {
             <div style={{ fontSize: 10, fontWeight: 600, color: "#9CA3AF", marginBottom: 4 }}>{cat.name}</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
               {cat.templates.map((t) => (
-                <FlatButton key={t.name} onClick={() => setMermaid(t.code)}
+                <FlatButton key={t.name} onClick={() => setMermaidAndClear(t.code)}
                   style={{ fontSize: 10, padding: "3px 7px" }}>
                   {t.name}
                 </FlatButton>
