@@ -366,7 +366,16 @@ export function ObjectSettingsSection() {
               type="text"
               defaultValue={selFragment.id}
               key={selFragment.id + '-fid'}
-              disabled
+              onBlur={(e) => {
+                const newId = e.target.value.trim()
+                if (newId && newId !== selFragment.id) {
+                  updateFragment(selFragment.id, { id: newId })
+                }
+              }}
+              onKeyDown={(e) => {
+                e.stopPropagation()
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+              }}
               style={{
                 width: '100%', background: '#f9fafb', border: PANEL_BORDER,
                 borderRadius: 6, padding: '6px 8px', fontSize: 12,

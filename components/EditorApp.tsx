@@ -706,12 +706,12 @@ function SequenceDiagramSettingsSection() {
   ];
 
   const FRAGMENTS = [
-    { type: 'loop' as const, label: 'loop', color: '#93c5fd' },
-    { type: 'alt' as const, label: 'alt', color: '#fcd34d' },
-    { type: 'opt' as const, label: 'opt', color: '#6ee7b7' },
-    { type: 'par' as const, label: 'par', color: '#c4b5fd' },
-    { type: 'critical' as const, label: 'critical', color: '#fca5a5' },
-    { type: 'break' as const, label: 'break', color: '#d1d5db' },
+    { type: 'loop' as const, label: 'loop', tooltip: '循环', color: '#93c5fd' },
+    { type: 'alt' as const, label: 'alt', tooltip: '条件分支', color: '#fcd34d' },
+    { type: 'opt' as const, label: 'opt', tooltip: '可选', color: '#6ee7b7' },
+    { type: 'par' as const, label: 'par', tooltip: '并行', color: '#c4b5fd' },
+    { type: 'critical' as const, label: 'critical', tooltip: '关键区域', color: '#fca5a5' },
+    { type: 'break' as const, label: 'break', tooltip: '中断', color: '#d1d5db' },
   ];
 
   const handleDragStart = (e: React.DragEvent, type: string) => {
@@ -749,6 +749,7 @@ function SequenceDiagramSettingsSection() {
               key={f.type}
               onClick={() => setPendingAddType(pendingAddType === f.type ? null : f.type)}
               active={pendingAddType === f.type}
+              title={f.tooltip}
               style={{ fontSize: 10, padding: "5px 6px", borderLeft: `3px solid ${f.color}` }}>
               {f.label}
             </FlatButton>

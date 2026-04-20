@@ -113,7 +113,7 @@ export function parseSeqCode(code: string): SeqParseResult {
           : participants.map(p => p.id)
 
         fragments.push({
-          id: `frag-${fragments.length}-${Date.now()}`,
+          id: `frag-${fragments.length + 1}`,
           type: frag.type,
           label: frag.label,
           coverParticipants: coverP,

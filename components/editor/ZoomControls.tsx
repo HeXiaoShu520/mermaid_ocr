@@ -80,7 +80,7 @@ export function ZoomControls() {
   }
 
   const handleFit = () => {
-    fitView({ duration: 400, padding: 0.1 })
+    fitView({ duration: 400, padding: 0.15, minZoom: 0.5, maxZoom: 1.5 })
     setTimeout(() => setZoom(Math.round(getZoom() * 100)), 500)
   }
 

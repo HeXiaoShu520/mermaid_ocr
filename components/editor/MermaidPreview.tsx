@@ -148,8 +148,9 @@ export default function MermaidPreview({ code, widthPx }: MermaidPreviewProps) {
     const scaleX = (cW - 40) / sW
     const scaleY = (cH - 40) / sH
     const scale = Math.min(1, scaleX, scaleY)
+    // 水平居中，垂直偏上（上边距占 30%，下边距占 70%）
     const x = (cW - sW * scale) / 2
-    const y = (cH - sH * scale) / 2
+    const y = (cH - sH * scale) * 0.3
     setViewTransform({ x, y, scale })
   }
 

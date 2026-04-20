@@ -4,6 +4,9 @@ import { useCallback, useEffect, useRef } from 'react'
 import { useSeqEditorStore } from '@/lib/seqEditorStore'
 import { useAiStore } from '@/lib/aiStore'
 
+// 片段 ID 计数器
+let _fragCounter = 0
+
 export default function SeqContextMenu() {
   const {
     contextMenu, setContextMenu,
@@ -148,7 +151,7 @@ export default function SeqContextMenu() {
           const { messages: msgs, participants: ps } = useSeqEditorStore.getState()
           const maxOrder = msgs.length > 0 ? Math.max(...msgs.map(m => m.order)) : 0
           addFragment({
-            id: `frag-${Date.now()}`,
+            id: `frag-${++_fragCounter}`,
             type: ft,
             label: ft === 'loop' ? '条件' : ft === 'alt' ? '条件' : '',
             coverParticipants: ps.map(p => p.id),

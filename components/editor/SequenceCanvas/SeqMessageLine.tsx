@@ -88,7 +88,7 @@ export default function SeqMessageLine({ message, participants }: Props) {
       {/* 点击热区 */}
       {isSelf ? (
         <path
-          d={`M${x1},${y} C${x1 + 50},${y - 20} ${x1 + 50},${y + 20} ${x1},${y + 20}`}
+          d={`M${x1},${y} L${x1 + 40},${y} Q${x1 + 50},${y} ${x1 + 50},${y + 10} L${x1 + 50},${y + 30} Q${x1 + 50},${y + 40} ${x1 + 40},${y + 40} L${x1},${y + 40}`}
           fill="none" stroke="transparent" strokeWidth={16}
         />
       ) : (
@@ -98,7 +98,7 @@ export default function SeqMessageLine({ message, participants }: Props) {
       {/* 消息线 */}
       {isSelf ? (
         <path
-          d={`M${x1},${y} C${x1 + 50},${y - 20} ${x1 + 50},${y + 20} ${x1},${y + 20}`}
+          d={`M${x1},${y} L${x1 + 40},${y} Q${x1 + 50},${y} ${x1 + 50},${y + 10} L${x1 + 50},${y + 30} Q${x1 + 50},${y + 40} ${x1 + 40},${y + 40} L${x1},${y + 40}`}
           fill="none" stroke={strokeColor} strokeWidth={strokeW}
           strokeDasharray={dashArray}
         />
@@ -111,23 +111,31 @@ export default function SeqMessageLine({ message, participants }: Props) {
       )}
 
       {/* 箭头 */}
-      {message.arrow !== 'none' && !isSelf && (
-        <polygon
-          points={
-            message.arrow === 'filled'
-              ? `${x2},${y} ${x2 - dir * 10},${y - 5} ${x2 - dir * 10},${y + 5}`
-              : `${x2},${y} ${x2 - dir * 10},${y - 5} ${x2 - dir * 7},${y} ${x2 - dir * 10},${y + 5}`
-          }
-          fill={message.arrow === 'filled' ? strokeColor : 'none'}
-          stroke={strokeColor} strokeWidth={1}
-        />
+      {message.arrow !== 'none' && (
+        isSelf ? (
+          <polygon
+            points={`${x1},${y + 40} ${x1 - 5},${y + 35} ${x1 + 5},${y + 35}`}
+            fill={message.arrow === 'filled' ? strokeColor : 'none'}
+            stroke={strokeColor} strokeWidth={1}
+          />
+        ) : (
+          <polygon
+            points={
+              message.arrow === 'filled'
+                ? `${x2},${y} ${x2 - dir * 10},${y - 5} ${x2 - dir * 10},${y + 5}`
+                : `${x2},${y} ${x2 - dir * 10},${y - 5} ${x2 - dir * 7},${y} ${x2 - dir * 10},${y + 5}`
+            }
+            fill={message.arrow === 'filled' ? strokeColor : 'none'}
+            stroke={strokeColor} strokeWidth={1}
+          />
+        )
       )}
 
       {/* 标签 */}
       {isEditing ? (
         <foreignObject
-          x={isSelf ? x1 + 20 : Math.min(x1, x2) + Math.abs(x2 - x1) / 2 - 60}
-          y={y - 24}
+          x={isSelf ? x1 + 55 : Math.min(x1, x2) + Math.abs(x2 - x1) / 2 - 60}
+          y={isSelf ? y + 10 : y - 24}
           width={120} height={22}
         >
           <input
@@ -147,7 +155,7 @@ export default function SeqMessageLine({ message, participants }: Props) {
       ) : (
         <text
           x={isSelf ? x1 + 55 : (x1 + x2) / 2}
-          y={y - 8}
+          y={isSelf ? y + 20 : y - 8}
           textAnchor="middle" fontSize={11}
           fill={isSelected ? '#2563eb' : '#374151'}
           style={{ pointerEvents: 'none' }}

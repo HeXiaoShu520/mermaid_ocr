@@ -24,7 +24,8 @@ export default function SvgZoomControls({ onUndo, onRedo, canUndo, canRedo }: Sv
   }
 
   const handleFitView = () => {
-    setViewTransform({ x: 0, y: 0, scale: 1 })
+    // 重置为初始状态，偏上居中
+    setViewTransform({ x: 0, y: 50, scale: 1 })
   }
 
   return (

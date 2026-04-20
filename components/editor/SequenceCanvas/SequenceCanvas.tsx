@@ -10,6 +10,9 @@ import SeqMessageLine from './SeqMessageLine'
 import SeqFragmentBox from './SeqFragmentBox'
 import SeqContextMenu from './SeqContextMenu'
 
+// 片段 ID 计数器
+let _fragCounter = 0
+
 export default function SequenceCanvas() {
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -112,12 +115,21 @@ export default function SequenceCanvas() {
         const startOrder = Math.max(0, Math.round((minY - SEQ_HEAD_H) / SEQ_ROW_H))
         const endOrder = Math.max(startOrder, Math.round((maxY - SEQ_HEAD_H) / SEQ_ROW_H))
 
+        // 收集片段范围内消息涉及的参与者
+        const involvedParticipants = new Set<string>()
+        messages.forEach(m => {
+          if (m.order >= startOrder && m.order <= endOrder) {
+            involvedParticipants.add(m.from)
+            involvedParticipants.add(m.to)
+          }
+        })
+
         const fragType = pendingAddType as 'loop' | 'alt' | 'opt' | 'par' | 'critical' | 'break' | 'rect'
         const frag: any = {
-          id: `frag-${Date.now()}`,
+          id: `frag-${++_fragCounter}`,
           type: fragType,
           label: fragType === 'loop' ? '条件' : fragType === 'alt' ? '条件' : fragType === 'opt' ? '条件' : fragType === 'par' ? '并行' : fragType === 'critical' ? '关键' : '中断',
-          coverParticipants: participants.map(p => p.id),
+          coverParticipants: involvedParticipants.size > 0 ? Array.from(involvedParticipants) : participants.map(p => p.id),
           startOrder,
           endOrder,
         }
@@ -247,13 +259,33 @@ export default function SequenceCanvas() {
     const rect = containerRef.current?.getBoundingClientRect()
     if (!rect) return
 
-    const rightMost = participants.length > 0
-      ? Math.max(...participants.map(p => p.x)) + SEQ_COL_W
-      : SEQ_PAD_X
-    const x = participants.length === 0 ? SEQ_PAD_X : rightMost
+    // 计算拖拽位置
+    const mx = (e.clientX - rect.left - viewTransform.x) / viewTransform.scale
+
+    // 找到插入位置：在哪两个参与者之间
+    let insertIndex = participants.length
+    for (let i = 0; i < participants.length; i++) {
+      if (mx < participants[i].x) {
+        insertIndex = i
+        break
+      }
+    }
+
     const id = `P${participants.length + 1}`
-    addParticipant({ id, label: id, x, type: type as 'participant' | 'actor' })
-  }, [participants, addParticipant])
+    const newParticipant = { id, label: id, x: 0, type: type as 'participant' | 'actor' }
+
+    // 插入到指定位置
+    const updated = [...participants]
+    updated.splice(insertIndex, 0, newParticipant)
+
+    // 重新计算所有参与者的 x 坐标
+    const reordered = updated.map((p, i) => ({
+      ...p,
+      x: SEQ_PAD_X + i * SEQ_COL_W + SEQ_COL_W / 2,
+    }))
+
+    useSeqEditorStore.setState({ participants: reordered })
+  }, [participants, viewTransform])
 
   return (
     <div

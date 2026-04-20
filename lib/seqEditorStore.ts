@@ -5,6 +5,9 @@
 
 import { create } from 'zustand'
 
+// ID 生成计数器
+let _fragCounter = 0
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface SeqParticipant {
@@ -307,13 +310,6 @@ export const useSeqEditorStore = create<SeqEditorState>((set, get) => ({
       m.order >= insertOrder ? { ...m, order: m.order + 1 } : m
     )
 
-    // 把受影响的片段也往后挤
-    const updatedFragments = fragments.map(f => {
-      const newStart = f.startOrder >= insertOrder ? f.startOrder + 1 : f.startOrder
-      const newEnd = f.endOrder >= insertOrder ? f.endOrder + 1 : f.endOrder
-      return { ...f, startOrder: newStart, endOrder: newEnd }
-    })
-
     const newMessage: SeqMessage = {
       id: `msg-${Date.now()}`,
       from: connecting.fromId,
@@ -323,6 +319,31 @@ export const useSeqEditorStore = create<SeqEditorState>((set, get) => ({
       style: 'solid',
       arrow: 'filled',
     }
+
+    // 更新片段：挤开 + 自动扩展
+    const updatedFragments = fragments.map(f => {
+      let newStart = f.startOrder
+      let newEnd = f.endOrder
+
+      // 1. 如果插入点在片段范围内或之前，往后挤
+      if (f.startOrder >= insertOrder) {
+        newStart = f.startOrder + 1
+      }
+      if (f.endOrder >= insertOrder) {
+        newEnd = f.endOrder + 1
+      }
+
+      // 2. 如果新消息在片段后面，且涉及片段覆盖的参与者，自动扩展
+      if (insertOrder > f.endOrder) {
+        const involvedInFragment = f.coverParticipants.includes(newMessage.from) ||
+                                   f.coverParticipants.includes(newMessage.to)
+        if (involvedInFragment) {
+          newEnd = insertOrder
+        }
+      }
+
+      return { ...f, startOrder: newStart, endOrder: newEnd }
+    })
 
     set({
       messages: [...updatedMessages, newMessage],

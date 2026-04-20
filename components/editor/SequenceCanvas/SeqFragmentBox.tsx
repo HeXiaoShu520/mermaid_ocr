@@ -62,6 +62,14 @@ export default function SeqFragmentBox({ fragment, participants }: Props) {
     setContextMenu({ x: e.clientX, y: e.clientY, fragmentId: fragment.id })
   }, [fragment.id, setContextMenu])
 
+  const handleLabelDoubleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    const newLabel = prompt('修改片段标签:', fragment.label || '')
+    if (newLabel !== null) {
+      updateFragment(fragment.id, { label: newLabel })
+    }
+  }, [fragment.id, fragment.label, updateFragment])
+
   // ─── Resize（上下边缘拖拽调整覆盖范围） ───
   const handleResizeStart = useCallback((e: React.MouseEvent, edge: 'top' | 'bottom') => {
     e.stopPropagation()
@@ -119,7 +127,8 @@ export default function SeqFragmentBox({ fragment, participants }: Props) {
           height={20}
           rx={4}
           fill={colors.border}
-          style={{ pointerEvents: 'none' }}
+          style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+          onDoubleClick={handleLabelDoubleClick}
         />
         <text
           x={minX + 8} y={topY + 14}
