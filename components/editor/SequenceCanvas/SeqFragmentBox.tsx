@@ -35,7 +35,7 @@ export default function SeqFragmentBox({ fragment, participants }: Props) {
   const minX = Math.min(...coverPs.map(p => p.x)) - 60
   const maxX = Math.max(...coverPs.map(p => p.x)) + 60
   const topY = SEQ_HEAD_H + fragment.startOrder * SEQ_ROW_H + 4
-  const bottomY = SEQ_HEAD_H + (fragment.endOrder + 1) * SEQ_ROW_H + SEQ_ROW_H / 2 - 4
+  const bottomY = SEQ_HEAD_H + (fragment.endOrder + 1) * SEQ_ROW_H - 4
   const width = maxX - minX
   const height = bottomY - topY
 
