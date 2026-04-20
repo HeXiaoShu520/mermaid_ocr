@@ -22,6 +22,7 @@ export default function SeqFragmentBox({ fragment, participants }: Props) {
   const {
     selectedFragmentId, selectFragment,
     updateFragment, setContextMenu, removeFragment,
+    fragments,
   } = useSeqEditorStore()
 
   const isSelected = selectedFragmentId === fragment.id
@@ -32,8 +33,17 @@ export default function SeqFragmentBox({ fragment, participants }: Props) {
   const coverPs = participants.filter(p => fragment.coverParticipants.includes(p.id))
   if (coverPs.length === 0) return null
 
-  const minX = Math.min(...coverPs.map(p => p.x)) - 60
-  const maxX = Math.max(...coverPs.map(p => p.x)) + 60
+  // 检测是否被其他片段包含（嵌套层级）
+  const nestLevel = fragments.filter(f =>
+    f.id !== fragment.id &&
+    f.startOrder <= fragment.startOrder &&
+    f.endOrder >= fragment.endOrder
+  ).length
+
+  const indent = nestLevel * 20  // 每层嵌套缩进 20px
+
+  const minX = Math.min(...coverPs.map(p => p.x)) - 60 + indent
+  const maxX = Math.max(...coverPs.map(p => p.x)) + 60 - indent
   const topY = SEQ_HEAD_H + fragment.startOrder * SEQ_ROW_H + 4
   const bottomY = SEQ_HEAD_H + (fragment.endOrder + 1) * SEQ_ROW_H - 4
   const width = maxX - minX
