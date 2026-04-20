@@ -295,25 +295,38 @@ export const useSeqEditorStore = create<SeqEditorState>((set, get) => ({
   },
 
   endConnection: (toId) => {
-    const { connecting, messages } = get()
+    const { connecting, messages, fragments } = get()
     if (!connecting) return
 
-    const maxOrder = messages.length > 0
-      ? Math.max(...messages.map(m => m.order))
-      : -1
+    // 根据点击的 Y 坐标计算插入位置
+    const clickY = connecting.fromY
+    const insertOrder = Math.max(0, Math.round((clickY - SEQ_HEAD_H) / SEQ_ROW_H))
+
+    // 把 >= insertOrder 的消息都往后挤
+    const updatedMessages = messages.map(m =>
+      m.order >= insertOrder ? { ...m, order: m.order + 1 } : m
+    )
+
+    // 把受影响的片段也往后挤
+    const updatedFragments = fragments.map(f => {
+      const newStart = f.startOrder >= insertOrder ? f.startOrder + 1 : f.startOrder
+      const newEnd = f.endOrder >= insertOrder ? f.endOrder + 1 : f.endOrder
+      return { ...f, startOrder: newStart, endOrder: newEnd }
+    })
 
     const newMessage: SeqMessage = {
       id: `msg-${Date.now()}`,
       from: connecting.fromId,
       to: toId,
       label: '消息',
-      order: maxOrder + 1,
+      order: insertOrder,
       style: 'solid',
       arrow: 'filled',
     }
 
     set({
-      messages: [...messages, newMessage],
+      messages: [...updatedMessages, newMessage],
+      fragments: updatedFragments,
       connecting: null,
       selectedMessageId: newMessage.id,
     })
