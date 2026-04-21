@@ -5,8 +5,8 @@ import { useCallback, useRef, useState, Fragment } from 'react'
 import { useFlowStore, type FlowNodeData, type NodeShape } from '@/lib/flowStore'
 
 // Shared resizer styles — larger handles for easier interaction
-const RESIZER_HANDLE_STYLE: React.CSSProperties = { width: 10, height: 10, borderRadius: 2 }
-const RESIZER_LINE_STYLE: React.CSSProperties = { borderWidth: 8, cursor: 'grab' }
+const RESIZER_HANDLE_STYLE: React.CSSProperties = { width: 16, height: 16, borderRadius: 3 }
+const RESIZER_LINE_STYLE: React.CSSProperties = { borderWidth: 12, cursor: 'crosshair' }
 
 // ─── SVG shape paths (viewBox 0 0 200 100, preserveAspectRatio="none") ────────
 // All points are in the 200×100 coordinate space so they stretch with the node.
