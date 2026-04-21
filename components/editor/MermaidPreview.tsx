@@ -35,12 +35,11 @@ export default function MermaidPreview({ code, widthPx }: MermaidPreviewProps) {
       const sW = svgEl.clientWidth || svgEl.getBoundingClientRect().width
       const sH = svgEl.clientHeight || svgEl.getBoundingClientRect().height
       if (sW === 0 || sH === 0) return
-      // 计算适配缩放（留 20px 边距）
-      const scaleX = (cW - 40) / sW
-      const scaleY = (cH - 40) / sH
-      const scale = Math.min(1, scaleX, scaleY)
+      // 以宽度为主，尽可能占满可见宽度（留 20px 边距）
+      const scale = Math.min(1, (cW - 20) / sW)
       const x = (cW - sW * scale) / 2
-      const y = (cH - sH * scale) / 2
+      // 垂直靠上，留 16px 上边距
+      const y = 16
       setViewTransform({ x, y, scale })
     })
   }, [svg])
@@ -141,16 +140,12 @@ export default function MermaidPreview({ code, widthPx }: MermaidPreviewProps) {
     const svgEl = container.querySelector('svg')
     if (!svgEl) { setViewTransform({ x: 0, y: 0, scale: 1 }); return }
     const cW = container.clientWidth
-    const cH = container.clientHeight
     const sW = svgEl.clientWidth || svgEl.getBoundingClientRect().width
     const sH = svgEl.clientHeight || svgEl.getBoundingClientRect().height
     if (sW === 0 || sH === 0) { setViewTransform({ x: 0, y: 0, scale: 1 }); return }
-    const scaleX = (cW - 40) / sW
-    const scaleY = (cH - 40) / sH
-    const scale = Math.min(1, scaleX, scaleY)
-    // 水平居中，垂直偏上（上边距占 30%，下边距占 70%）
+    const scale = Math.min(1, (cW - 20) / sW)
     const x = (cW - sW * scale) / 2
-    const y = (cH - sH * scale) * 0.3
+    const y = 16
     setViewTransform({ x, y, scale })
   }
 
