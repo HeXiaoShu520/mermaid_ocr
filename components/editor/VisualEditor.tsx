@@ -177,6 +177,9 @@ export default function VisualEditor() {
       return { ...sg, x: minX - padding, y: minY - padding, width: maxX - minX + padding * 2, height: maxY - minY + padding * 2 }
     })
     setSubgraphs(updatedSubgraphs)
+    if (updatedSubgraphs.length > 1) {
+      setTimeout(() => useGraphEditorStore.getState().resolveSubgraphOverlaps(), 0)
+    }
   }, [])
 
   // 饼图编辑器
