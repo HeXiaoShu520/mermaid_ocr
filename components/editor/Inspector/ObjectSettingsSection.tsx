@@ -90,7 +90,7 @@ export function ObjectSettingsSection() {
   const {
     participants, messages, fragments,
     selectedParticipantId, selectedMessageId, selectedFragmentId,
-    updateParticipant, updateMessage, updateFragment,
+    updateParticipant, updateMessage, updateFragment, swapMessageOrder,
   } = useSeqEditorStore()
 
   const selectedNodes = nodes.filter(n => selectedNodeIds.has(n.id))
@@ -329,6 +329,29 @@ export function ObjectSettingsSection() {
                 color: '#374151', outline: 'none',
               }}
             />
+          </div>
+          <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 6 }}>方向</div>
+          <div style={{ marginBottom: 12 }}>
+            <FlatBtn onClick={() => updateMessage(selMessage.id, { from: selMessage.to, to: selMessage.from })}>
+              ⇄ 反向
+            </FlatBtn>
+          </div>
+          <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 6 }}>排序</div>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+            <FlatBtn
+              onClick={() => swapMessageOrder(selMessage.id, -1)}
+              disabled={selMessage.order === 0}
+              title="上移"
+            >
+              ↑ 上移
+            </FlatBtn>
+            <FlatBtn
+              onClick={() => swapMessageOrder(selMessage.id, 1)}
+              disabled={selMessage.order === Math.max(...messages.map(m => m.order))}
+              title="下移"
+            >
+              ↓ 下移
+            </FlatBtn>
           </div>
           <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 6 }}>线条样式</div>
           <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>

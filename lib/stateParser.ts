@@ -15,15 +15,12 @@ export function parseMermaidStateDiagram(syntax: string): StateParseResult {
     const nodesMap = new Map<string, Node<FlowNodeData>>()
     const edges: Edge<FlowEdgeData>[] = []
     let edgeIdx = 0
-    // Track start/end node instances to allow multiple [*] nodes
-    let startCount = 0
-    let endCount = 0
 
     const ensureNode = (id: string, label?: string, shape: FlowNodeData['shape'] = 'rectangle') => {
       if (!nodesMap.has(id)) {
         nodesMap.set(id, {
           id, type: 'flowNode', position: { x: 0, y: 0 },
-          data: { label: label ?? id, shape },
+          data: { label: label ?? id, shape, strokeColor: '#a78bfa' },
         })
       }
     }
@@ -71,15 +68,11 @@ export function parseMermaidStateDiagram(syntax: string): StateParseResult {
         const resolveId = (raw: string, isSource: boolean) => {
           if (raw !== '[*]') return raw
           if (isSource) {
-            // [*] as source = start node
-            const id = startCount === 0 ? '__start__' : `__start_${startCount}__`
-            startCount++
-            return id
+            // [*] as source = start node — always reuse the same start node
+            return '__start__'
           } else {
-            // [*] as target = end node
-            const id = endCount === 0 ? '__end__' : `__end_${endCount}__`
-            endCount++
-            return id
+            // [*] as target = end node — always reuse the same end node
+            return '__end__'
           }
         }
 

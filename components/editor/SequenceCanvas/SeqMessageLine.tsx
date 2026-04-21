@@ -14,11 +14,13 @@ export default function SeqMessageLine({ message, participants }: Props) {
     editingMessageId, setEditingMessage,
     updateMessage, setContextMenu,
     connecting, endConnection,
+    moveMessageOrder, messages,
   } = useSeqEditorStore()
 
   const isSelected = selectedMessageId === message.id
   const isEditing = editingMessageId === message.id
   const [draft, setDraft] = useState('')
+  const [isDragging, setIsDragging] = useState(false)
 
   const fromP = participants.find(p => p.id === message.from)
   const toP = participants.find(p => p.id === message.to)
@@ -33,7 +35,6 @@ export default function SeqMessageLine({ message, participants }: Props) {
   // ─── 点击选中 ───
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
-    // 如果正在连线，完成连线到这个消息的目标参与者
     if (connecting) return
     selectMessage(message.id)
   }, [message.id, selectMessage, connecting])
@@ -63,7 +64,6 @@ export default function SeqMessageLine({ message, participants }: Props) {
   const handleMouseUp = useCallback((e: React.MouseEvent) => {
     if (connecting) {
       e.stopPropagation()
-      // 找到最近的参与者
       const closestP = participants.reduce((closest, p) => {
         const dist = Math.abs(p.x - ((e.nativeEvent as any).offsetX || x1))
         const closestDist = Math.abs(closest.x - ((e.nativeEvent as any).offsetX || x1))
@@ -73,17 +73,51 @@ export default function SeqMessageLine({ message, participants }: Props) {
     }
   }, [connecting, participants, endConnection, x1])
 
-  const strokeColor = isSelected ? '#3b82f6' : '#6b7280'
+  // ─── 拖拽排序 ───
+  const handleDragStart = useCallback((e: React.DragEvent) => {
+    e.stopPropagation()
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('application/seq-message-order', String(message.order))
+    e.dataTransfer.setData('application/seq-message-id', message.id)
+    setIsDragging(true)
+  }, [message.id, message.order])
+
+  const handleDragEnd = useCallback(() => {
+    setIsDragging(false)
+  }, [])
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes('application/seq-message-id')) {
+      e.preventDefault()
+      e.stopPropagation()
+      e.dataTransfer.dropEffect = 'move'
+    }
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const draggedId = e.dataTransfer.getData('application/seq-message-id')
+    if (!draggedId || draggedId === message.id) return
+    moveMessageOrder(draggedId, message.order)
+  }, [message.id, message.order, moveMessageOrder])
+
+  const strokeColor = isSelected ? '#3b82f6' : isDragging ? '#a78bfa' : '#6b7280'
   const strokeW = isSelected ? 2 : 1.5
   const dashArray = message.style === 'dashed' ? '6 3' : undefined
 
   return (
     <g
-      style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+      draggable
+      style={{ cursor: isDragging ? 'grabbing' : 'grab', pointerEvents: 'auto' }}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onContextMenu={handleContextMenu}
       onMouseUp={handleMouseUp}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
     >
       {/* 点击热区 */}
       {isSelf ? (

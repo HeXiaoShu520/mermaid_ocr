@@ -17,6 +17,7 @@ export interface GraphNode {
     | 'doc' | 'lin-doc' | 'st-doc' | 'tag-doc'
     | 'fork' | 'brace' | 'brace-r' | 'braces' | 'win-pane'
     | 'ellipse' | 'cloud' | 'comment' | 'flag' | 'hourglass' | 'heart' | 'lightning' | 'moon' | 'text'
+    | 'filled-circle' | 'double-circle'  // 状态图特殊节点
   subgraph?: string  // 所属子图 ID
   fillColor?: string
   strokeColor?: string
@@ -236,12 +237,12 @@ export function parseMermaidFlowchart(code: string): GraphData {
       continue
     }
 
-    // 子图开始：subgraph id [label]
-    if (line.match(/^subgraph\s+(.+?)(?:\s*\[(.+?)\])?\s*$/i)) {
-      const m = line.match(/^subgraph\s+(.+?)(?:\s*\[(.+?)\])?\s*$/i)
+    // 子图开始：subgraph id [label] 或 subgraph "id" 或 subgraph id["label"]
+    if (line.match(/^subgraph\b/i)) {
+      const m = line.match(/^subgraph\s+["']?([^"'\[\]\s]+)["']?(?:\s*\[["']?([^\]"']+)["']?\])?\s*$/i)
       if (m) {
         const subgraphId = m[1].trim()
-        const subgraphLabel = m[2] || subgraphId
+        const subgraphLabel = m[2]?.trim() || subgraphId
         subgraphs.push({ id: subgraphId, label: subgraphLabel, nodes: [] })
         subgraphStack.push(subgraphId)
         currentSubgraph = subgraphId
