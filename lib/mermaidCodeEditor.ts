@@ -14,6 +14,10 @@ export function getDiagramType(code: string): string | null {
   if (/^sequenceDiagram/i.test(first)) return 'sequenceDiagram'
   if (/^pie/i.test(first)) return 'pie'
   if (/^xychart/i.test(first)) return 'xychart'
+  if (/^packet-beta/i.test(first)) return 'packet'
+  if (/^kanban/i.test(first)) return 'kanban'
+  if (/^mindmap/i.test(first)) return 'mindmap'
+  if (/^timeline/i.test(first)) return 'timeline'
   return null
 }
 

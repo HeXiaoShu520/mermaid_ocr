@@ -5,6 +5,8 @@ import { PieEditor } from './PieEditor'
 import { XyChartEditor } from './XyChartEditor'
 import { PacketEditor } from './PacketEditor'
 import { KanbanEditor } from './KanbanEditor'
+import { MindmapEditor } from './MindmapEditor'
+import { TimelineEditor } from './TimelineEditor'
 import SequenceCanvas from './SequenceCanvas/SequenceCanvas'
 import { getDiagramType } from '@/lib/mermaidCodeEditor'
 import { useGraphEditorStore } from '@/lib/graphEditorStore'
@@ -14,6 +16,8 @@ import { parseMermaidPieChart, serializePieChart, type PieData } from '@/lib/pie
 import { parseMermaidXyChart, serializeXyChart, type XyChartData } from '@/lib/xyChartParser'
 import { parsePacketDiagram, serializePacketDiagram, type PacketData } from '@/lib/packetParser'
 import { parseKanbanDiagram, serializeKanbanDiagram, type KanbanData } from '@/lib/kanbanParser'
+import { parseMindmap, serializeMindmap, type MindmapData } from '@/lib/mindmapParser'
+import { parseTimelineDiagram, serializeTimelineDiagram, type TimelineData } from '@/lib/timelineParser'
 import { useSeqEditorStore } from '@/lib/seqEditorStore'
 import { parseSeqCode, serializeSeqCode } from '@/lib/seqParser'
 import { parseMermaidStateDiagram } from '@/lib/stateParser'
@@ -27,11 +31,13 @@ export default function VisualEditor() {
   const mermaidCode = useStore(s => s.mermaid)
   const diagramType = getDiagramType(mermaidCode)
 
-  // 专用编辑器的 state（饼图、XY 图仍用本地 state）
+  // 专用编辑器的 state
   const [pieDraft, setPieDraft] = useState<{ title: string; data: PieData[] } | null>(null)
   const [xyDraft, setXyDraft] = useState<XyChartData | null>(null)
   const [packetDraft, setPacketDraft] = useState<PacketData | null>(null)
   const [kanbanDraft, setKanbanDraft] = useState<KanbanData | null>(null)
+  const [mindmapDraft, setMindmapDraft] = useState<MindmapData | null>(null)
+  const [timelineDraft, setTimelineDraft] = useState<TimelineData | null>(null)
 
   // 读取代码
   const handleReadCode = useCallback(() => {
@@ -44,6 +50,8 @@ export default function VisualEditor() {
     setXyDraft(null)
     setPacketDraft(null)
     setKanbanDraft(null)
+    setMindmapDraft(null)
+    setTimelineDraft(null)
     useGraphEditorStore.getState().initGraph([], [], null, [])
     useSeqEditorStore.getState().initSeqGraph([], [], [])
 
@@ -56,6 +64,10 @@ export default function VisualEditor() {
       setPacketDraft(parsePacketDiagram(code))
     } else if (dt === 'kanban') {
       setKanbanDraft(parseKanbanDiagram(code))
+    } else if (dt === 'mindmap') {
+      setMindmapDraft(parseMindmap(code))
+    } else if (dt === 'timeline') {
+      setTimelineDraft(parseTimelineDiagram(code))
     } else if (dt === 'sequenceDiagram') {
       const result = parseSeqCode(code)
       useSeqEditorStore.getState().initSeqGraph(result.participants, result.messages, result.fragments)
@@ -109,6 +121,10 @@ export default function VisualEditor() {
       code = serializePacketDiagram(packetDraft)
     } else if (currentDt === 'kanban' && kanbanDraft) {
       code = serializeKanbanDiagram(kanbanDraft)
+    } else if (currentDt === 'mindmap' && mindmapDraft) {
+      code = serializeMindmap(mindmapDraft)
+    } else if (currentDt === 'timeline' && timelineDraft) {
+      code = serializeTimelineDiagram(timelineDraft)
     } else if (currentDt === 'sequenceDiagram') {
       const { participants, messages, fragments } = useSeqEditorStore.getState()
       code = serializeSeqCode(participants, messages, fragments)
@@ -249,6 +265,80 @@ export default function VisualEditor() {
               <div style={{ fontSize: 72, lineHeight: 1 }}>📋</div>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: 13, fontWeight: 500, color: "#6b7280" }}>点击"读取代码"加载看板图</div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // 思维导图编辑器
+  if (diagramType === 'mindmap') {
+    return (
+      <div className="flex-1 flex flex-col relative">
+        <div className="flex items-center gap-2 px-3 py-2.5 border-b bg-gray-50">
+          <div className="text-xs font-semibold text-gray-700">思维导图</div>
+          <button
+            onClick={handleReadCode}
+            className="px-4 py-2 bg-cyan-50 border border-cyan-300 text-cyan-700 rounded text-sm hover:bg-cyan-100 transition-colors"
+            title="从代码重新加载画布"
+          >
+            ⬇️ 读取代码
+          </button>
+          <button
+            onClick={handleWriteCode}
+            className="px-4 py-2 bg-orange-50 border border-orange-300 text-orange-700 rounded text-sm hover:bg-orange-100 transition-colors"
+            title="将画布内容写回代码"
+          >
+            ⬆️ 回写代码
+          </button>
+        </div>
+        <div className="flex-1 relative">
+          {mindmapDraft ? (
+            <MindmapEditor data={mindmapDraft} onUpdate={setMindmapDraft} />
+          ) : (
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 pointer-events-none gap-3">
+              <div style={{ fontSize: 72, lineHeight: 1 }}>🧠</div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 13, fontWeight: 500, color: "#6b7280" }}>点击"读取代码"加载思维导图</div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // 时间线编辑器
+  if (diagramType === 'timeline') {
+    return (
+      <div className="flex-1 flex flex-col relative">
+        <div className="flex items-center gap-2 px-3 py-2.5 border-b bg-gray-50">
+          <div className="text-xs font-semibold text-gray-700">时间线</div>
+          <button
+            onClick={handleReadCode}
+            className="px-4 py-2 bg-cyan-50 border border-cyan-300 text-cyan-700 rounded text-sm hover:bg-cyan-100 transition-colors"
+            title="从代码重新加载画布"
+          >
+            ⬇️ 读取代码
+          </button>
+          <button
+            onClick={handleWriteCode}
+            className="px-4 py-2 bg-orange-50 border border-orange-300 text-orange-700 rounded text-sm hover:bg-orange-100 transition-colors"
+            title="将画布内容写回代码"
+          >
+            ⬆️ 回写代码
+          </button>
+        </div>
+        <div className="flex-1 relative">
+          {timelineDraft ? (
+            <TimelineEditor data={timelineDraft} onUpdate={setTimelineDraft} />
+          ) : (
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 pointer-events-none gap-3">
+              <div style={{ fontSize: 72, lineHeight: 1 }}>📅</div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 13, fontWeight: 500, color: "#6b7280" }}>点击"读取代码"加载时间线</div>
               </div>
             </div>
           )}

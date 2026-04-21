@@ -825,7 +825,7 @@ function RightSidebar({ supported, diagramType }: { supported: boolean; diagramT
 function EditorContent() {
   const { mermaid: code } = useStore();
   const diagramType = getDiagramType(code) || 'flowchart';
-  const supported = diagramType === 'flowchart' || diagramType === 'classDiagram' || diagramType === 'stateDiagram' || diagramType === 'sequenceDiagram' || diagramType === 'pie' || diagramType === 'xychart' || diagramType === 'packet' || diagramType === 'kanban'
+  const supported = diagramType === 'flowchart' || diagramType === 'classDiagram' || diagramType === 'stateDiagram' || diagramType === 'sequenceDiagram' || diagramType === 'pie' || diagramType === 'xychart' || diagramType === 'packet' || diagramType === 'kanban' || diagramType === 'mindmap' || diagramType === 'timeline'
 
   // Resizable column widths
   const containerRef = useRef<HTMLDivElement>(null);
