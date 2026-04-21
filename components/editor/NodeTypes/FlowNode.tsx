@@ -283,6 +283,7 @@ const SVG_RENDERERS: Partial<Record<NodeShape, SvgShapeRenderer>> = {
   'trapezoid-alt': SvgTrapezoidAlt,
   asymmetric: SvgAsymmetric,
   cylinder: SvgCylinder,
+  cylindrical: SvgCylinder,  // 别名
   triangle: SvgTriangle,
   'flip-tri': SvgFlipTri,
   'small-circle': SvgSmallCircle,
@@ -416,6 +417,13 @@ export function FlowNode({ id, data, selected }: NodeProps) {
   const updateNodeLabel = useFlowStore((s) => s.updateNodeLabel)
   const pushHistory = useFlowStore((s) => s.pushHistory)
 
+  // 当节点取消选中时，自动退出编辑状态
+  useEffect(() => {
+    if (!selected && editing) {
+      setEditing(false)
+    }
+  }, [selected, editing])
+
   const commitLabel = useCallback(() => {
     const trimmed = draft.trim()
     updateNodeLabel(id, trimmed)
@@ -498,7 +506,7 @@ export function FlowNode({ id, data, selected }: NodeProps) {
   // ── SVG-backed shapes ──────────────────────────────────────────────────────
   if (IS_SVG_SHAPE.has(shape)) {
     const Renderer = SVG_RENDERERS[shape]!
-    const isCylinder = shape === 'cylinder' || shape === 'lin-cyl'
+    const isCylinder = shape === 'cylinder' || shape === 'cylindrical' || shape === 'lin-cyl'
     const isSquarish = shape === 'small-circle' || shape === 'framed-circle' || shape === 'filled-circle'
       || shape === 'crossed-circle' || shape === 'triangle' || shape === 'flip-tri'
       || shape === 'bolt' || shape === 'bang' || shape === 'win-pane'
