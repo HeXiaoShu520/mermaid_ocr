@@ -55,17 +55,38 @@ export function serializeStateDiagram(
   const lines: string[] = ['stateDiagram-v2']
 
   for (const node of nodes) {
-    if (node.id === '__start__' || node.id === '__end__') continue
+    // Skip start/end nodes - they're represented as [*] in transitions
+    if (node.id.startsWith('__start') || node.id.startsWith('__end')) continue
+
     const id = sanitizeId(node.id)
     const label = node.data.label
-    if (label !== id) {
-      lines.push(`  state "${label}" as ${id}`)
+    const shape = node.data.shape
+
+    // Special node types
+    if (shape === 'diamond') {
+      lines.push(`  state ${id} <<choice>>`)
+    } else if (shape === 'fork') {
+      lines.push(`  state ${id} <<fork>>`)
+    } else if (shape === 'subroutine') {
+      // Composite state
+      if (label !== id) {
+        lines.push(`  state "${label}" as ${id}`)
+      } else {
+        lines.push(`  ${id}`)
+      }
+    } else {
+      // Normal state
+      if (label !== id) {
+        lines.push(`  state "${label}" as ${id}`)
+      } else {
+        lines.push(`  ${id}`)
+      }
     }
   }
 
   for (const edge of edges) {
-    const src = edge.source === '__start__' ? '[*]' : sanitizeId(edge.source)
-    const tgt = edge.target === '__start__' ? '[*]' : sanitizeId(edge.target)
+    const src = edge.source.startsWith('__start') ? '[*]' : sanitizeId(edge.source)
+    const tgt = edge.target.startsWith('__end') ? '[*]' : (edge.target.startsWith('__start') ? '[*]' : sanitizeId(edge.target))
     const label = typeof edge.label === 'string' && edge.label.trim() ? ` : ${edge.label}` : ''
     lines.push(`  ${src} --> ${tgt}${label}`)
   }

@@ -656,41 +656,50 @@ function ClassDiagramSettingsSection() {
 
 /* ─── State Diagram Settings ─── */
 function StateDiagramSettingsSection() {
-  const { pendingAddShape, setPendingAddShape } = useSvgEditorStore();
+  const { pendingAddShape, setPendingAddShape } = useGraphEditorStore();
+
+  const STATE_NODES = [
+    { shape: 'rounded', icon: '▢', label: '普通状态' },
+    { shape: 'filled-circle', icon: '⬤', label: '开始节点 [*]' },
+    { shape: 'double-circle', icon: '◎', label: '结束节点 [*]' },
+    { shape: 'subroutine', icon: '▣', label: '复合状态' },
+    { shape: 'diamond', icon: '◇', label: '选择节点' },
+    { shape: 'fork', icon: '━', label: 'Fork/Join' },
+  ];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div>
-        <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 4 }}>节点形状</div>
+        <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 4 }}>节点类型（点击后框选区域创建）</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 4 }}>
-          <FlatButton
-            onClick={() => setPendingAddShape('rounded')}
-            active={pendingAddShape === 'rounded'}
-            style={{ fontSize: 10, padding: "6px 8px", justifyContent: "flex-start" }}>
-            ▢ 状态（圆角）
-          </FlatButton>
-          <FlatButton
-            onClick={() => setPendingAddShape('circle')}
-            active={pendingAddShape === 'circle'}
-            style={{ fontSize: 10, padding: "6px 8px", justifyContent: "flex-start" }}>
-            ● 开始/结束
-          </FlatButton>
-          <FlatButton
-            onClick={() => setPendingAddShape('subroutine')}
-            active={pendingAddShape === 'subroutine'}
-            style={{ fontSize: 10, padding: "6px 8px", justifyContent: "flex-start" }}>
-            ▣ 复合状态
-          </FlatButton>
+          {STATE_NODES.map(n => (
+            <FlatButton
+              key={n.shape}
+              onClick={() => setPendingAddShape(pendingAddShape === n.shape ? null : n.shape)}
+              active={pendingAddShape === n.shape}
+              style={{ fontSize: 10, padding: "6px 8px", justifyContent: "flex-start" }}>
+              {n.icon} {n.label}
+            </FlatButton>
+          ))}
         </div>
       </div>
-      <div>
-        <div style={{ fontSize: 10, color: "#6B7280", lineHeight: 1.4, marginTop: 4 }}>
-          提示：
+      {pendingAddShape && (
+        <div style={{ fontSize: 10, color: "#6366f1", textAlign: "center", padding: "4px 0" }}>
+          在画布上框选区域创建节点
         </div>
+      )}
+      {pendingAddShape && (
+        <FlatButton
+          onClick={() => setPendingAddShape(null)}
+          style={{ fontSize: 10, padding: "4px 8px", color: "#9CA3AF" }}>
+          取消选择
+        </FlatButton>
+      )}
+      <div>
         <div style={{ fontSize: 9, color: "#9CA3AF", lineHeight: 1.5, marginTop: 4 }}>
-          • 使用圆角矩形表示普通状态<br />
-          • 使用圆形表示开始/结束<br />
-          • 使用双线框表示复合状态
+          • 拖拽节点移动位置<br />
+          • 悬停节点后拖拽连接点连线<br />
+          • 双击节点编辑标签
         </div>
       </div>
     </div>
@@ -774,7 +783,8 @@ function SequenceDiagramSettingsSection() {
 
 /* ─── Right Sidebar: Object Settings ─── */
 function RightSidebar({ supported, diagramType }: { supported: boolean; diagramType: string }) {
-  if (!supported) return null;
+  // packet 和 kanban 编辑器自带右侧面板
+  if (!supported || diagramType === 'packet' || diagramType === 'kanban') return null;
 
   return (
     <div style={{
@@ -815,7 +825,7 @@ function RightSidebar({ supported, diagramType }: { supported: boolean; diagramT
 function EditorContent() {
   const { mermaid: code } = useStore();
   const diagramType = getDiagramType(code) || 'flowchart';
-  const supported = diagramType === 'flowchart' || diagramType === 'classDiagram' || diagramType === 'stateDiagram' || diagramType === 'sequenceDiagram' || diagramType === 'pie' || diagramType === 'xychart'
+  const supported = diagramType === 'flowchart' || diagramType === 'classDiagram' || diagramType === 'stateDiagram' || diagramType === 'sequenceDiagram' || diagramType === 'pie' || diagramType === 'xychart' || diagramType === 'packet' || diagramType === 'kanban'
 
   // Resizable column widths
   const containerRef = useRef<HTMLDivElement>(null);

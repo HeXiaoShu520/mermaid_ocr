@@ -15,8 +15,10 @@ export function parseMermaidStateDiagram(syntax: string): StateParseResult {
     const nodesMap = new Map<string, Node<FlowNodeData>>()
     const edges: Edge<FlowEdgeData>[] = []
     let edgeIdx = 0
+    // Track start/end node instances to allow multiple [*] nodes
+    let startCount = 0
+    let endCount = 0
 
-    // Special start/end nodes
     const ensureNode = (id: string, label?: string, shape: FlowNodeData['shape'] = 'rectangle') => {
       if (!nodesMap.has(id)) {
         nodesMap.set(id, {
@@ -39,6 +41,17 @@ export function parseMermaidStateDiagram(syntax: string): StateParseResult {
         continue
       }
 
+      // state ID <<choice>> / <<fork>> / <<join>>
+      const stateSpecial = line.match(/^state\s+(\S+)\s+<<(\w+)>>/)
+      if (stateSpecial) {
+        const [, id, kind] = stateSpecial
+        const kindLower = kind.toLowerCase()
+        if (kindLower === 'choice') ensureNode(id, id, 'diamond')
+        else if (kindLower === 'fork' || kindLower === 'join') ensureNode(id, id, 'fork')
+        else ensureNode(id, id, 'rounded')
+        continue
+      }
+
       // state ID { ... } composite state (just register the container)
       const stateComposite = line.match(/^state\s+(\S+)\s*\{/)
       if (stateComposite) {
@@ -55,15 +68,29 @@ export function parseMermaidStateDiagram(syntax: string): StateParseResult {
       if (transition) {
         const [, rawSrc, rawTgt, label] = transition
 
-        const resolveId = (raw: string) => raw === '[*]' ? '__start__' : raw
-        const src = resolveId(rawSrc)
-        const tgt = resolveId(rawTgt)
+        const resolveId = (raw: string, isSource: boolean) => {
+          if (raw !== '[*]') return raw
+          if (isSource) {
+            // [*] as source = start node
+            const id = startCount === 0 ? '__start__' : `__start_${startCount}__`
+            startCount++
+            return id
+          } else {
+            // [*] as target = end node
+            const id = endCount === 0 ? '__end__' : `__end_${endCount}__`
+            endCount++
+            return id
+          }
+        }
 
-        if (src === '__start__') ensureNode(src, '●', 'filled-circle')
+        const src = resolveId(rawSrc, true)
+        const tgt = resolveId(rawTgt, false)
+
+        if (src.startsWith('__start')) ensureNode(src, '●', 'filled-circle')
         else ensureNode(src, src, 'rounded')
 
-        if (tgt === '__start__') ensureNode(tgt, '●', 'filled-circle')
-        else if (tgt === '__end__') ensureNode(tgt, '◎', 'double-circle')
+        if (tgt.startsWith('__end')) ensureNode(tgt, '◎', 'double-circle')
+        else if (tgt.startsWith('__start')) ensureNode(tgt, '●', 'filled-circle')
         else ensureNode(tgt, tgt, 'rounded')
 
         edges.push({
