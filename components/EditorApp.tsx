@@ -298,7 +298,7 @@ function FlowchartSettingsSection() {
     // 重新布局画布
     const { nodes, edges, subgraphs, setNodes, setSubgraphs } = useGraphEditorStore.getState();
     if (nodes.length > 0) {
-      const graphNodes = nodes.map(n => ({ id: n.id, label: n.label, shape: n.shape }));
+      const graphNodes = nodes.map(n => ({ id: n.id, label: n.label, shape: n.shape, subgraph: n.subgraph }));
       const graphEdges = edges.map(e => ({ id: e.id, source: e.source, target: e.target, label: e.label }));
       const layoutResult = dagreLayout(graphNodes, graphEdges, d);
       setNodes(layoutResult.nodes);
