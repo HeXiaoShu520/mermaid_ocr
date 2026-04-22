@@ -837,8 +837,8 @@ function EditorContent() {
     if (!containerRef.current) return;
     const total = containerRef.current.clientWidth - 12;
     if (codeW === 0) {
-      setCodeW(Math.round(total * 0.20));
-      setPreviewW(Math.round(total * 0.25));
+      setCodeW(Math.round(total * 0.28));
+      setPreviewW(Math.round(total * 0.32));
     }
   }, []);
 
