@@ -140,6 +140,7 @@ export default function MermaidPreview({ code, widthPx }: MermaidPreviewProps) {
     const svgEl = container.querySelector('svg')
     if (!svgEl) { setViewTransform({ x: 0, y: 0, scale: 1 }); return }
     const cW = container.clientWidth
+    const cH = container.clientHeight
     const sW = svgEl.clientWidth || svgEl.getBoundingClientRect().width
     const sH = svgEl.clientHeight || svgEl.getBoundingClientRect().height
     if (sW === 0 || sH === 0) { setViewTransform({ x: 0, y: 0, scale: 1 }); return }
