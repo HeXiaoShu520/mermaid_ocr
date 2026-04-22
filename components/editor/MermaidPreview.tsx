@@ -35,8 +35,8 @@ export default function MermaidPreview({ code, widthPx }: MermaidPreviewProps) {
       const sW = svgEl.clientWidth || svgEl.getBoundingClientRect().width
       const sH = svgEl.clientHeight || svgEl.getBoundingClientRect().height
       if (sW === 0 || sH === 0) return
-      // 以宽度为主，尽可能占满可见宽度（留 20px 边距）
-      const scale = Math.min(1, (cW - 20) / sW)
+      // fit：以宽高中较小的缩放比为准，留 20px 边距
+      const scale = Math.min((cW - 20) / sW, (cH - 32) / sH)
       const x = (cW - sW * scale) / 2
       // 垂直靠上，留 16px 上边距
       const y = 16
@@ -143,7 +143,7 @@ export default function MermaidPreview({ code, widthPx }: MermaidPreviewProps) {
     const sW = svgEl.clientWidth || svgEl.getBoundingClientRect().width
     const sH = svgEl.clientHeight || svgEl.getBoundingClientRect().height
     if (sW === 0 || sH === 0) { setViewTransform({ x: 0, y: 0, scale: 1 }); return }
-    const scale = Math.min(1, (cW - 20) / sW)
+    const scale = Math.min((cW - 20) / sW, (cH - 32) / sH)
     const x = (cW - sW * scale) / 2
     const y = 16
     setViewTransform({ x, y, scale })
