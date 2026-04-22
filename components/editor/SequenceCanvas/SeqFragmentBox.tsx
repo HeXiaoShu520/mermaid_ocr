@@ -45,7 +45,11 @@ export default function SeqFragmentBox({ fragment, participants }: Props) {
   const minX = Math.min(...coverPs.map(p => p.x)) - 60 + indent
   const maxX = Math.max(...coverPs.map(p => p.x)) + 60 - indent
   const topY = SEQ_HEAD_H + fragment.startOrder * SEQ_ROW_H + 4
-  const bottomY = SEQ_HEAD_H + (fragment.endOrder + 1) * SEQ_ROW_H - 4
+  // 底部收紧：不再多占一整行，只到当前行末尾留 8px
+  const sameEndCount = fragments.filter(f => f.endOrder === fragment.endOrder && f.id !== fragment.id).length
+  const sameEndIndex = fragments.filter(f => f.endOrder === fragment.endOrder).findIndex(f => f.id === fragment.id)
+  const bottomOffset = sameEndCount > 0 ? sameEndIndex * 6 : 0
+  const bottomY = SEQ_HEAD_H + fragment.endOrder * SEQ_ROW_H + SEQ_ROW_H * 0.7 - bottomOffset
   const width = maxX - minX
   const height = bottomY - topY
 
