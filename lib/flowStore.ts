@@ -20,6 +20,7 @@ export type NodeShape =
   | "stadium"
   | "subroutine"
   | "cylinder"
+  | "cylindrical"
   | "circle"
   | "double-circle"
   | "diamond"

@@ -675,6 +675,7 @@ export default function GraphNode({
           <div style={{ ...baseStyle, borderRadius: '50%' }}>{nodeContent}</div>
         )
       case 'rectangle':
+        return <div style={{ ...baseStyle, borderRadius: 4 }}>{nodeContent}</div>
       case 'filled-circle':
         return (
           <div style={{ ...baseStyle, border: 'none', background: 'transparent', boxShadow: 'none' }}>

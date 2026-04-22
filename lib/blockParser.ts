@@ -69,46 +69,40 @@ export function parseBlockDiagram(code: string): BlockData {
       continue
     }
 
-    // space 或 space:N
-    const spaceMatch = trimmed.match(/^space(?::(\d+))?$/)
-    if (spaceMatch) {
-      const colspan = spaceMatch[1] ? parseInt(spaceMatch[1]) : 1
-      blocks.push({
-        id: `space-${++_blockCounter}`,
-        label: '',
-        shape: 'rectangle',
-        colspan,
-        isSpace: true,
-      })
-      continue
-    }
+    // 将行拆分为 token（保留带括号/引号的完整块语法）
+    // 用正则提取每个 token：space[:N] 或 形状语法
+    const tokenRe = /space(?::\d+)?|[\w:]+(?:\(\(\("[^"]*"\)\)\)|\(\("[^"]*"\)\)|\(\["[^"]*"\]\)|\("([^"]*)"\)|\[\["[^"]*"\]\]|\[\("([^"]*)"\)\]|\{\{"[^"]*"\}\}|\{"[^"]*"\}|\[\/"[^"]*"\/\]|\[\\"[^"]*"\\\]|\["[^"]*"\])/g
+    const tokens = trimmed.match(tokenRe)
+    if (!tokens) continue
 
-    // 尝试匹配各种形状
-    let matched = false
-    for (const [pattern, shape] of SHAPE_PATTERNS) {
-      const m = trimmed.match(pattern)
-      if (m) {
-        const [, id, label] = m
-        // 检查是否有 :N 跨列
-        const colonMatch = id.match(/^(\w+):(\d+)$/)
-        const actualId = colonMatch ? colonMatch[1] : id
-        const colspan = colonMatch ? parseInt(colonMatch[2]) : undefined
-        blocks.push({ id: actualId, label, shape, colspan })
-        matched = true
-        break
+    for (const token of tokens) {
+      // space 或 space:N
+      const spaceMatch = token.match(/^space(?::(\d+))?$/)
+      if (spaceMatch) {
+        const colspan = spaceMatch[1] ? parseInt(spaceMatch[1]) : 1
+        blocks.push({ id: `space-${++_blockCounter}`, label: '', shape: 'rectangle', colspan, isSpace: true })
+        continue
       }
-    }
 
-    if (!matched) {
-      // 尝试简单的 id:N 跨列
-      const simpleColspan = trimmed.match(/^(\w+):(\d+)$/)
-      if (simpleColspan) {
-        blocks.push({
-          id: simpleColspan[1],
-          label: simpleColspan[1],
-          shape: 'rectangle',
-          colspan: parseInt(simpleColspan[2]),
-        })
+      let matched = false
+      for (const [pattern, shape] of SHAPE_PATTERNS) {
+        const m = token.match(pattern)
+        if (m) {
+          const [, id, label] = m
+          const colonMatch = id.match(/^(\w+):(\d+)$/)
+          const actualId = colonMatch ? colonMatch[1] : id
+          const colspan = colonMatch ? parseInt(colonMatch[2]) : undefined
+          blocks.push({ id: actualId, label, shape, colspan })
+          matched = true
+          break
+        }
+      }
+
+      if (!matched) {
+        const simpleColspan = token.match(/^(\w+):(\d+)$/)
+        if (simpleColspan) {
+          blocks.push({ id: simpleColspan[1], label: simpleColspan[1], shape: 'rectangle', colspan: parseInt(simpleColspan[2]) })
+        }
       }
     }
   }

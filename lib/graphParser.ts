@@ -17,7 +17,7 @@ export interface GraphNode {
     | 'doc' | 'lin-doc' | 'st-doc' | 'tag-doc'
     | 'fork' | 'brace' | 'brace-r' | 'braces' | 'win-pane'
     | 'ellipse' | 'cloud' | 'comment' | 'flag' | 'hourglass' | 'heart' | 'lightning' | 'moon' | 'text'
-    | 'filled-circle' | 'double-circle'  // 状态图特殊节点
+    | 'filled-circle' | 'framed-circle' | 'double-circle'  // 状态图特殊节点
   subgraph?: string  // 所属子图 ID
   fillColor?: string
   strokeColor?: string

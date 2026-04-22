@@ -67,6 +67,7 @@ export default function SvgCanvas({ code, onCodeChange }: SvgCanvasProps) {
       try {
         mermaid.initialize({
           startOnLoad: false,
+          logLevel: 'error',
           theme: theme as any,
           flowchart: { curve: curveStyle },
           ...(look !== 'classic' ? { look } as any : {}),

@@ -88,13 +88,10 @@ export default function VisualEditor() {
       if (result.error) {
         console.error('[handleReadCode] 状态图解析失败:', result.error)
       } else {
-        // 转换为 LayoutNode 格式（使用 as any 绕过 shape 类型差异）
-        const layoutNodes = result.nodes.map(n => ({
+        const rawNodes = result.nodes.map(n => ({
           id: n.id,
           label: n.data.label,
           shape: n.data.shape as any,
-          x: n.position.x,
-          y: n.position.y,
           width: (n.style?.width as number) || 120,
           height: (n.style?.height as number) || 40,
           strokeColor: n.data.strokeColor,
@@ -105,8 +102,9 @@ export default function VisualEditor() {
           target: e.target,
           label: e.label as string | undefined,
         }))
+        const layoutResult = dagreLayout(rawNodes, layoutEdges, 'TB')
         const { initGraph } = useGraphEditorStore.getState()
-        initGraph(layoutNodes, layoutEdges, null, [])
+        initGraph(layoutResult.nodes, layoutEdges, null, [])
       }
     } else if (dt === 'flowchart') {
       try {
@@ -178,7 +176,7 @@ export default function VisualEditor() {
     const { nodes, edges, subgraphs, direction, setNodes, setSubgraphs } = useGraphEditorStore.getState()
     if (nodes.length === 0) return
 
-    const graphNodes = nodes.map(n => ({ id: n.id, label: n.label, shape: n.shape, subgraph: n.subgraph }))
+    const graphNodes = nodes.map(n => ({ id: n.id, label: n.label, shape: n.shape, subgraph: n.subgraph, width: n.width, height: n.height, strokeColor: n.strokeColor, fillColor: n.fillColor }))
     const graphEdges = edges.map(e => ({ id: e.id, source: e.source, target: e.target, label: e.label }))
     const layoutResult = dagreLayout(graphNodes, graphEdges, direction)
     setNodes(layoutResult.nodes)
@@ -251,6 +249,7 @@ export default function VisualEditor() {
               </div>
             </div>
           )}
+          <AiChatBox />
         </div>
       </div>
     )
@@ -288,6 +287,7 @@ export default function VisualEditor() {
               </div>
             </div>
           )}
+          <AiChatBox />
         </div>
       </div>
     )
@@ -385,6 +385,7 @@ export default function VisualEditor() {
               <div style={{ fontSize: 13, fontWeight: 500, color: "#6b7280" }}>点击"读取代码"加载树形图</div>
             </div>
           )}
+          <AiChatBox />
         </div>
       </div>
     )
@@ -408,6 +409,7 @@ export default function VisualEditor() {
               <div style={{ fontSize: 13, fontWeight: 500, color: "#6b7280" }}>点击"读取代码"加载块图</div>
             </div>
           )}
+          <AiChatBox />
         </div>
       </div>
     )

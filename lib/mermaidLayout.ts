@@ -20,6 +20,7 @@ export async function applyMermaidLayout(
   try {
     mermaid.initialize({
       startOnLoad: false,
+      logLevel: 'error',
       theme: theme as any,
       flowchart: { curve: curveStyle },
       ...(look !== 'classic' ? { look } as any : {}),

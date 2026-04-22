@@ -58,7 +58,7 @@ export function serializeStateDiagram(
     // Skip start/end nodes - they're represented as [*] in transitions
     if (node.id.startsWith('__start') || node.id.startsWith('__end')) continue
 
-    const id = sanitizeId(node.id)
+    const id = node.id  // 直接使用原始 ID，不做 sanitize
     const label = node.data.label
     const shape = node.data.shape
 
@@ -85,8 +85,8 @@ export function serializeStateDiagram(
   }
 
   for (const edge of edges) {
-    const src = edge.source.startsWith('__start') ? '[*]' : sanitizeId(edge.source)
-    const tgt = edge.target.startsWith('__end') ? '[*]' : (edge.target.startsWith('__start') ? '[*]' : sanitizeId(edge.target))
+    const src = edge.source.startsWith('__start') ? '[*]' : edge.source  // 直接使用原始 ID
+    const tgt = edge.target.startsWith('__end') ? '[*]' : (edge.target.startsWith('__start') ? '[*]' : edge.target)
     const label = typeof edge.label === 'string' && edge.label.trim() ? ` : ${edge.label}` : ''
     lines.push(`  ${src} --> ${tgt}${label}`)
   }

@@ -42,11 +42,9 @@ export function dagreLayout(
 
   // 添加节点
   nodes.forEach(node => {
-    g.setNode(node.id, {
-      width: DEFAULT_NODE_WIDTH,
-      height: DEFAULT_NODE_HEIGHT,
-      label: node.label,
-    })
+    const w = (node as any).width || DEFAULT_NODE_WIDTH
+    const h = (node as any).height || DEFAULT_NODE_HEIGHT
+    g.setNode(node.id, { width: w, height: h, label: node.label })
   })
 
   // 添加边
@@ -60,12 +58,14 @@ export function dagreLayout(
   // 提取坐标
   const layoutNodes: LayoutNode[] = nodes.map(node => {
     const dagreNode = g.node(node.id)
+    const w = (node as any).width || DEFAULT_NODE_WIDTH
+    const h = (node as any).height || DEFAULT_NODE_HEIGHT
     return {
       ...node,
-      x: dagreNode.x - DEFAULT_NODE_WIDTH / 2,
-      y: dagreNode.y - DEFAULT_NODE_HEIGHT / 2,
-      width: DEFAULT_NODE_WIDTH,
-      height: DEFAULT_NODE_HEIGHT,
+      x: dagreNode.x - w / 2,
+      y: dagreNode.y - h / 2,
+      width: w,
+      height: h,
     }
   })
 

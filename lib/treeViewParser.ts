@@ -33,15 +33,24 @@ export function parseTreeViewDiagram(code: string): TreeViewData {
     const indent = rawLine.search(/\S/)
     if (indent < 0) continue
 
-    // 提取标签（支持引号）
+    // 提取标签：支持 id["label"]、id[label]、"label"、纯文本
     let label = trimmed
+    let nodeId = `tree-${++_treeNodeCounter}`
+    const bracketQuoted = trimmed.match(/^(\w+)\["([^"]+)"\]$/)
+    const bracketPlain = trimmed.match(/^(\w+)\[([^\]]+)\]$/)
     const quoted = trimmed.match(/^"([^"]+)"$/)
-    if (quoted) {
+    if (bracketQuoted) {
+      nodeId = bracketQuoted[1]
+      label = bracketQuoted[2]
+    } else if (bracketPlain) {
+      nodeId = bracketPlain[1]
+      label = bracketPlain[2]
+    } else if (quoted) {
       label = quoted[1]
     }
 
     const node: TreeNode = {
-      id: `tree-${++_treeNodeCounter}`,
+      id: nodeId,
       label,
       children: [],
       level: indent,

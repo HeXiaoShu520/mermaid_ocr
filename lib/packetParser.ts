@@ -12,6 +12,7 @@ export interface PacketField {
 
 export interface PacketData {
   fields: PacketField[]
+  bitsPerRow?: number
 }
 
 export function parsePacketDiagram(code: string): PacketData {

@@ -61,6 +61,7 @@ export default function MermaidPreview({ code, widthPx }: MermaidPreviewProps) {
       try {
         mermaid.initialize({
           startOnLoad: false,
+          logLevel: 'error',
           theme: theme as any,
           ...(look !== 'classic' ? { look } as any : {}),
         } as any)
@@ -75,8 +76,22 @@ export default function MermaidPreview({ code, widthPx }: MermaidPreviewProps) {
         }
       } catch (err: any) {
         if (mounted) {
-          setError(err?.message || 'Mermaid 语法错误')
-          setSvg('')
+          const msg = err?.message || ''
+          // mermaid block-beta 已知 bug：render 内部 JSON.stringify DOM 节点
+          if (msg.includes('circular structure') || msg.includes('Converting circular')) {
+            // 尝试从临时容器取出已生成的 SVG
+            const tmp = document.getElementById(`preview-${Date.now() - 1}`) ?? document.querySelector('[id^="preview-"]')
+            const svgEl = tmp?.querySelector('svg')
+            if (svgEl) {
+              setSvg(svgEl.outerHTML)
+              setError('')
+            } else {
+              setError('渲染引擎内部错误（block-beta 已知问题），请尝试简化图表')
+            }
+          } else {
+            setError(msg || 'Mermaid 语法错误')
+            setSvg('')
+          }
         }
       }
     })()

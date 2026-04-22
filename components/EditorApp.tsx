@@ -22,13 +22,13 @@ import { useAiStore } from "@/lib/aiStore";
 import { dagreLayout } from "@/lib/graphLayout";
 import { useSeqEditorStore } from "@/lib/seqEditorStore";
 
-mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, logLevel: 'error' });
 
 const NEU_BG = "var(--neu-bg)";
 const PANEL_BORDER = "1px solid rgba(163,177,198,0.25)";
 const PANEL_RADIUS = 10;
 
-type DiagramType = 'flowchart' | 'classDiagram' | 'stateDiagram' | 'sequenceDiagram' | 'pie' | 'xychart' | null
+type DiagramType = 'flowchart' | 'classDiagram' | 'stateDiagram' | 'sequenceDiagram' | 'pie' | 'xychart' | 'packet' | 'kanban' | 'mindmap' | 'timeline' | 'treeView' | 'block' | null
 
 function parseSeqData(code: string): { participants: SeqParticipant[]; messages: SeqMessage[] } {
   const lines = code.split('\n').map(l => l.trim()).filter(Boolean)
@@ -74,6 +74,12 @@ function getDiagramType(code: string): DiagramType {
   if (/^sequenceDiagram/i.test(stripped)) return 'sequenceDiagram'
   if (/^pie(\s|$)/i.test(stripped)) return 'pie'
   if (/^xychart-beta/i.test(stripped)) return 'xychart'
+  if (/^packet-beta/i.test(stripped)) return 'packet'
+  if (/^kanban/i.test(stripped)) return 'kanban'
+  if (/^mindmap/i.test(stripped)) return 'mindmap'
+  if (/^timeline/i.test(stripped)) return 'timeline'
+  if (/^treeView-beta/i.test(stripped)) return 'treeView'
+  if (/^block-beta/i.test(stripped)) return 'block'
   return null
 }
 
