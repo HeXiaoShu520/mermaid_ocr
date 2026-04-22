@@ -783,8 +783,8 @@ function SequenceDiagramSettingsSection() {
 
 /* ─── Right Sidebar: Object Settings ─── */
 function RightSidebar({ supported, diagramType }: { supported: boolean; diagramType: string }) {
-  // packet 和 kanban 编辑器自带右侧面板
-  if (!supported || diagramType === 'packet' || diagramType === 'kanban') return null;
+  // packet、kanban、treeView、block 编辑器自带右侧面板
+  if (!supported || diagramType === 'packet' || diagramType === 'kanban' || diagramType === 'treeView' || diagramType === 'block') return null;
 
   return (
     <div style={{
@@ -825,7 +825,7 @@ function RightSidebar({ supported, diagramType }: { supported: boolean; diagramT
 function EditorContent() {
   const { mermaid: code } = useStore();
   const diagramType = getDiagramType(code) || 'flowchart';
-  const supported = diagramType === 'flowchart' || diagramType === 'classDiagram' || diagramType === 'stateDiagram' || diagramType === 'sequenceDiagram' || diagramType === 'pie' || diagramType === 'xychart' || diagramType === 'packet' || diagramType === 'kanban' || diagramType === 'mindmap' || diagramType === 'timeline'
+  const supported = diagramType === 'flowchart' || diagramType === 'classDiagram' || diagramType === 'stateDiagram' || diagramType === 'sequenceDiagram' || diagramType === 'pie' || diagramType === 'xychart' || diagramType === 'packet' || diagramType === 'kanban' || diagramType === 'mindmap' || diagramType === 'timeline' || diagramType === 'treeView' || diagramType === 'block'
 
   // Resizable column widths
   const containerRef = useRef<HTMLDivElement>(null);

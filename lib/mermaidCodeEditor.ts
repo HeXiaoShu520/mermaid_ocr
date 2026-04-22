@@ -18,6 +18,8 @@ export function getDiagramType(code: string): string | null {
   if (/^kanban/i.test(first)) return 'kanban'
   if (/^mindmap/i.test(first)) return 'mindmap'
   if (/^timeline/i.test(first)) return 'timeline'
+  if (/^treeView-beta/i.test(first)) return 'treeView'
+  if (/^block-beta/i.test(first)) return 'block'
   return null
 }
 

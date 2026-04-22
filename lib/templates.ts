@@ -126,6 +126,60 @@ export const templateCategories: TemplateCategory[] = [
     bar [200, 400, 800, 1500, 3000, 5000]
     line [200, 400, 800, 1500, 3000, 5000]`,
       },
+      {
+        name: "树形图",
+        code: `treeView-beta
+  root[项目结构]
+    src[源代码]
+      components[组件]
+        Header[头部]
+        Footer[底部]
+      lib[工具库]
+        utils[工具函数]
+        hooks[自定义Hook]
+    public[静态资源]
+      images[图片]
+      fonts[字体]
+    docs[文档]`,
+      },
+      {
+        name: "块图",
+        code: `block-beta
+  columns 3
+  A["前端"] B["API网关"] C["后端服务"]
+  space D[("数据库")] space
+  E["CDN"] space F[["缓存"]]`,
+      },
+      {
+        name: "数据包图",
+        code: `packet-beta
+  0-7: "源端口"
+  8-15: "目标端口"
+  16-31: "序列号"
+  32-47: "确认号"
+  48-51: "数据偏移"
+  52-55: "保留"
+  56-63: "控制位"
+  64-79: "窗口大小"
+  80-95: "校验和"
+  96-111: "紧急指针"`,
+      },
+      {
+        name: "看板",
+        code: `kanban
+  todo[待办]
+    task1[需求分析]
+    task2[UI设计]
+    task3[接口文档]
+  doing[进行中]
+    task4[前端开发]@{ assigned: '张三' }
+    task5[后端开发]@{ assigned: '李四' }
+  review[评审]
+    task6[代码审查]
+  done[已完成]
+    task7[环境搭建]
+    task8[技术选型]`,
+      },
     ],
   },
   {
