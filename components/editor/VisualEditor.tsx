@@ -95,8 +95,9 @@ export default function VisualEditor() {
           shape: n.data.shape as any,
           x: n.position.x,
           y: n.position.y,
-          width: 120,
-          height: 40,
+          width: (n.style?.width as number) || 120,
+          height: (n.style?.height as number) || 40,
+          strokeColor: n.data.strokeColor,
         }))
         const layoutEdges = result.edges.map(e => ({
           id: e.id,

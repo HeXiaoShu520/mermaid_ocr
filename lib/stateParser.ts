@@ -16,12 +16,16 @@ export function parseMermaidStateDiagram(syntax: string): StateParseResult {
     const edges: Edge<FlowEdgeData>[] = []
     let edgeIdx = 0
 
-    const ensureNode = (id: string, label?: string, shape: FlowNodeData['shape'] = 'rectangle') => {
+    const ensureNode = (id: string, label?: string, shape: FlowNodeData['shape'] = 'rectangle', width?: number, height?: number) => {
       if (!nodesMap.has(id)) {
-        nodesMap.set(id, {
+        const node: Node<FlowNodeData> = {
           id, type: 'flowNode', position: { x: 0, y: 0 },
           data: { label: label ?? id, shape, strokeColor: '#a78bfa' },
-        })
+        }
+        if (width || height) {
+          node.style = { width, height }
+        }
+        nodesMap.set(id, node)
       }
     }
 
@@ -34,7 +38,7 @@ export function parseMermaidStateDiagram(syntax: string): StateParseResult {
       const stateAlias = line.match(/^state\s+"([^"]+)"\s+as\s+(\S+)/)
       if (stateAlias) {
         const [, label, id] = stateAlias
-        ensureNode(id, label, 'rounded')
+        ensureNode(id, label, 'rectangle')  // 使用 rectangle（小圆角）而不是 rounded（大圆角）
         continue
       }
 
@@ -45,7 +49,7 @@ export function parseMermaidStateDiagram(syntax: string): StateParseResult {
         const kindLower = kind.toLowerCase()
         if (kindLower === 'choice') ensureNode(id, id, 'diamond')
         else if (kindLower === 'fork' || kindLower === 'join') ensureNode(id, id, 'fork')
-        else ensureNode(id, id, 'rounded')
+        else ensureNode(id, id, 'rectangle')
         continue
       }
 
@@ -79,11 +83,11 @@ export function parseMermaidStateDiagram(syntax: string): StateParseResult {
         const src = resolveId(rawSrc, true)
         const tgt = resolveId(rawTgt, false)
 
-        if (src.startsWith('__start')) ensureNode(src, '●', 'filled-circle')
+        if (src.startsWith('__start')) ensureNode(src, '', 'filled-circle', 32, 32)
         else ensureNode(src, src, 'rounded')
 
-        if (tgt.startsWith('__end')) ensureNode(tgt, '◎', 'double-circle')
-        else if (tgt.startsWith('__start')) ensureNode(tgt, '●', 'filled-circle')
+        if (tgt.startsWith('__end')) ensureNode(tgt, '', 'framed-circle', 32, 32)
+        else if (tgt.startsWith('__start')) ensureNode(tgt, '', 'filled-circle', 32, 32)
         else ensureNode(tgt, tgt, 'rounded')
 
         edges.push({
@@ -100,7 +104,7 @@ export function parseMermaidStateDiagram(syntax: string): StateParseResult {
       // bare state ID (standalone declaration)
       const bareState = line.match(/^(\S+)\s*$/)
       if (bareState && !bareState[1].includes('-->')) {
-        ensureNode(bareState[1], bareState[1], 'rounded')
+        ensureNode(bareState[1], bareState[1], 'rectangle')
       }
     }
 

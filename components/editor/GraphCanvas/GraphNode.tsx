@@ -198,11 +198,10 @@ export default function GraphNode({
 
   const showHandles = (isSelected || isHovered) && node.shape !== 'text' && node.shape !== 'comment'
 
-  // 节点内容：标签 + 淡色 ID（始终显示）
+  // 节点内容：标签
   const nodeContent = (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, pointerEvents: 'none' }}>
       <span>{node.label}</span>
-      <span style={{ fontSize: 9, color: 'rgba(0,0,0,0.2)', lineHeight: 1 }}>{node.id}</span>
     </div>
   )
 
@@ -270,7 +269,7 @@ export default function GraphNode({
           </div>
         )
       case 'rounded':
-        return <div style={{ ...baseStyle, borderRadius: 20 }}>{nodeContent}</div>
+        return <div style={{ ...baseStyle, borderRadius: 8 }}>{nodeContent}</div>
       case 'stadium':
         return <div style={{ ...baseStyle, borderRadius: node.height / 2 }}>{nodeContent}</div>
       case 'circle':
@@ -676,6 +675,24 @@ export default function GraphNode({
           <div style={{ ...baseStyle, borderRadius: '50%' }}>{nodeContent}</div>
         )
       case 'rectangle':
+      case 'filled-circle':
+        return (
+          <div style={{ ...baseStyle, border: 'none', background: 'transparent', boxShadow: 'none' }}>
+            <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
+              <circle cx={node.width / 2} cy={node.height / 2} r={Math.min(node.width, node.height) / 2 - 1} fill={strokeColor} />
+            </svg>
+          </div>
+        )
+      case 'framed-circle':
+        return (
+          <div style={{ ...baseStyle, border: 'none', background: 'transparent', boxShadow: 'none' }}>
+            <svg width={node.width} height={node.height} style={{ position: 'absolute', left: 0, top: 0 }}>
+              <circle cx={node.width / 2} cy={node.height / 2} r={Math.min(node.width, node.height) / 2 - 1} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
+              <circle cx={node.width / 2} cy={node.height / 2} r={Math.min(node.width, node.height) / 2 - 5} fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
+              <circle cx={node.width / 2} cy={node.height / 2} r={3} fill={strokeColor} />
+            </svg>
+          </div>
+        )
       default:
         return <div style={{ ...baseStyle, borderRadius: 4 }}>{nodeContent}</div>
     }
