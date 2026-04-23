@@ -1,15 +1,34 @@
 'use client'
 
 import { useCallback, useRef, useState } from 'react'
-import { useSeqEditorStore, type SeqParticipant as SeqP } from '@/lib/seqEditorStore'
+import { useSeqEditorStore, type SeqParticipant as SeqP, type SeqActivation, SEQ_HEAD_H, SEQ_ROW_H } from '@/lib/seqEditorStore'
 
 interface Props {
   participant: SeqP
   lifelineHeight: number
   viewScale: number
+  activations: SeqActivation[]
 }
 
-export default function SeqParticipantNode({ participant, lifelineHeight, viewScale }: Props) {
+export default function SeqParticipantNode({ participant, lifelineHeight, viewScale, activations }: Props) {
+  // 计算该参与者的激活区间
+  const myActivations = activations.filter(a => a.participantId === participant.id)
+  const activeBars: { y1: number; y2: number }[] = []
+  let activateY: number | null = null
+  const sorted = [...myActivations].sort((a, b) => a.order - b.order)
+  for (const a of sorted) {
+    const y = SEQ_HEAD_H + (a.order + 0.5) * SEQ_ROW_H
+    if (a.type === 'activate') {
+      activateY = y
+    } else if (a.type === 'deactivate' && activateY !== null) {
+      activeBars.push({ y1: activateY, y2: y })
+      activateY = null
+    }
+  }
+  // 未关闭的激活条延伸到生命线末尾
+  if (activateY !== null) {
+    activeBars.push({ y1: activateY, y2: lifelineHeight })
+  }
   const {
     selectedParticipantId, selectParticipant,
     moveParticipant, reorderParticipants,
@@ -97,6 +116,17 @@ export default function SeqParticipantNode({ participant, lifelineHeight, viewSc
         stroke="#c7d2fe" strokeWidth={1.5} strokeDasharray="6 4"
         style={{ pointerEvents: 'none' }}
       />
+
+      {/* 激活条 */}
+      {activeBars.map((bar, i) => (
+        <rect
+          key={i}
+          x={x - 5} y={bar.y1}
+          width={10} height={bar.y2 - bar.y1}
+          fill="white" stroke="#6366f1" strokeWidth={1.5}
+          style={{ pointerEvents: 'none' }}
+        />
+      ))}
 
       {/* 生命线可交互区域（用于发起连线） */}
       <line

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import type { PacketData, PacketField } from '@/lib/packetParser'
+import { usePacketEditorStore } from '@/lib/packetEditorStore'
 
 const BIT_WIDTH = 24
 const ROW_HEIGHT = 48
@@ -27,12 +28,17 @@ interface PacketEditorProps {
 export function PacketEditor({ data, onUpdate }: PacketEditorProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [resizeMode, setResizeMode] = useState<'cover' | 'push'>('push')
+  const { selectedId, setSelectedId, resizeMode } = usePacketEditorStore()
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 })
   const [isPanning, setIsPanning] = useState(false)
   const [panStart, setPanStart] = useState({ x: 0, y: 0 })
-  const [canvasWidth, setCanvasWidth] = useState(800)
+
+  // 同步 data 到 store，供 RightSidebar 面板读取
+  const { updateData } = usePacketEditorStore()
+  const handleUpdate = useCallback((newData: PacketData) => {
+    onUpdate(newData)
+    updateData(newData)
+  }, [onUpdate, updateData])
 
   const bitsPerRow = data.bitsPerRow || 32
   const containerRef = useRef<HTMLDivElement>(null)
@@ -51,14 +57,14 @@ export function PacketEditor({ data, onUpdate }: PacketEditorProps) {
 
   const commitEdit = useCallback(() => {
     if (!editingId) return
-    onUpdate({ ...data, fields: data.fields.map(f => f.id === editingId ? { ...f, label: draft.trim() || f.label } : f) })
+    handleUpdate({ ...data, fields: data.fields.map(f => f.id === editingId ? { ...f, label: draft.trim() || f.label } : f) })
     setEditingId(null)
-  }, [editingId, draft, data, onUpdate])
+  }, [editingId, draft, data, handleUpdate])
 
   const handleAddField = useCallback(() => {
     const lastEnd = data.fields.length > 0 ? Math.max(...data.fields.map(f => f.endBit)) : -1
-    onUpdate({ ...data, fields: [...data.fields, { id: `field-${Date.now()}`, startBit: lastEnd + 1, endBit: lastEnd + 8, label: '新字段' }] })
-  }, [data, onUpdate])
+    handleUpdate({ ...data, fields: [...data.fields, { id: `field-${Date.now()}`, startBit: lastEnd + 1, endBit: lastEnd + 8, label: '新字段' }] })
+  }, [data, handleUpdate])
 
   // 判断两个字段是否有交集
   const hasOverlap = (a: PacketField, b: PacketField) => a.startBit <= b.endBit && a.endBit >= b.startBit
@@ -165,13 +171,13 @@ export function PacketEditor({ data, onUpdate }: PacketEditorProps) {
           }
         }
       }
-      onUpdate({ ...data, fields: newFields })
+      handleUpdate({ ...data, fields: newFields })
     }
 
     const onUp = () => { dragRef.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
-  }, [data, resizeMode, transform.scale, onUpdate])
+  }, [data, resizeMode, transform.scale, handleUpdate])
 
   // 画布缩放
   const handleWheel = useCallback((e: React.WheelEvent) => {
@@ -180,9 +186,10 @@ export function PacketEditor({ data, onUpdate }: PacketEditorProps) {
     setTransform(t => ({ ...t, scale: Math.max(0.3, Math.min(3, t.scale * delta)) }))
   }, [])
 
-  // 中键平移
+  // 左键平移（点在空白处时）
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.button === 1) {
+    if (e.button === 1 || e.button === 0) {
+      // button=0 只在画布背景上触发（字段的 onMouseDown 会 stopPropagation）
       e.preventDefault()
       setIsPanning(true)
       setPanStart({ x: e.clientX - transform.x, y: e.clientY - transform.y })
@@ -194,7 +201,7 @@ export function PacketEditor({ data, onUpdate }: PacketEditorProps) {
       if (!isPanning) return
       setTransform(t => ({ ...t, x: e.clientX - panStart.x, y: e.clientY - panStart.y }))
     }
-    const onUp = (e: MouseEvent) => { if (e.button === 1) setIsPanning(false) }
+    const onUp = (e: MouseEvent) => { if (e.button === 1 || e.button === 0) setIsPanning(false) }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
@@ -269,22 +276,6 @@ export function PacketEditor({ data, onUpdate }: PacketEditorProps) {
     )
   }
 
-  const [rightW, setRightW] = useState(256)
-  const dividerDrag = useRef<{ startX: number; startW: number } | null>(null)
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      if (!dividerDrag.current) return
-      const dx = dividerDrag.current.startX - e.clientX
-      setRightW(Math.max(160, Math.min(480, dividerDrag.current.startW + dx)))
-    }
-    const onUp = () => { dividerDrag.current = null }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
-  }, [])
-
-  const selectedField = selectedId ? data.fields.find(f => f.id === selectedId) : null
-
   return (
     <div className="flex h-full">
       {/* 画布区 */}
@@ -321,77 +312,6 @@ export function PacketEditor({ data, onUpdate }: PacketEditorProps) {
           </div>
           <div className="mt-3 text-xs text-gray-400">共 {totalBits} 位 · {data.fields.length} 个字段 · 滚轮缩放 · 中键平移</div>
         </div>
-      </div>
-
-      {/* 分隔条 */}
-      <div
-        style={{ width: 4, cursor: 'col-resize', background: 'transparent', flexShrink: 0 }}
-        className="hover:bg-blue-300 transition-colors"
-        onMouseDown={e => { dividerDrag.current = { startX: e.clientX, startW: rightW } }}
-      />
-
-      {/* 右侧面板 */}
-      <div className="border-l bg-gray-50 overflow-y-auto p-3 flex flex-col gap-3" style={{ width: rightW, flexShrink: 0 }}>
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-gray-600">字段列表</span>
-          <button onClick={handleAddField} className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600">+ 添加字段</button>
-        </div>
-
-        {/* 每行位数 */}
-        <label className="text-xs text-gray-500">每行位数
-          <div className="flex items-center gap-2 mt-0.5">
-            <input type="number" className="flex-1 px-2 py-1 border rounded text-xs" value={bitsPerRow} min={8} max={128} step={8}
-              onChange={e => onUpdate({ ...data, bitsPerRow: parseInt(e.target.value) || 32 })}
-              onKeyDown={e => e.stopPropagation()} />
-          </div>
-        </label>
-
-        {/* 拖拽模式 */}
-        <div className="flex gap-1 p-1 bg-gray-200 rounded text-xs">
-          <button onClick={() => setResizeMode('push')} className={`flex-1 py-1 rounded transition-colors ${resizeMode === 'push' ? 'bg-white text-blue-600 font-medium shadow-sm' : 'text-gray-500'}`}>顺延</button>
-          <button onClick={() => setResizeMode('cover')} className={`flex-1 py-1 rounded transition-colors ${resizeMode === 'cover' ? 'bg-white text-blue-600 font-medium shadow-sm' : 'text-gray-500'}`}>覆盖</button>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          {data.fields.map((field, fi) => {
-            const color = FIELD_COLORS[fi % FIELD_COLORS.length]
-            return (
-              <div key={field.id} className={`p-2 rounded text-xs cursor-pointer border ${selectedId === field.id ? 'border-blue-300 bg-blue-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}
-                style={{ borderLeft: `3px solid ${color.border}` }}
-                onClick={() => setSelectedId(field.id)}>
-                <div className="flex items-center justify-between">
-                  <span className="font-medium truncate" style={{ color: color.text }}>{field.label}</span>
-                  <button onClick={e => { e.stopPropagation(); onUpdate({ ...data, fields: data.fields.filter(f => f.id !== field.id) }); if (selectedId === field.id) setSelectedId(null) }} className="text-gray-300 hover:text-red-500 ml-1">×</button>
-                </div>
-                <div className="text-gray-400 mt-0.5">位 {field.startBit} - {field.endBit}</div>
-              </div>
-            )
-          })}
-        </div>
-
-        {selectedField && (
-          <div className="border-t pt-3 flex flex-col gap-2">
-            <div className="text-xs font-semibold text-gray-600">属性</div>
-            <label className="text-xs text-gray-500">标签
-              <input className="w-full mt-0.5 px-2 py-1 border rounded text-xs" value={selectedField.label}
-                onChange={e => onUpdate({ ...data, fields: data.fields.map(f => f.id === selectedField.id ? { ...f, label: e.target.value } : f) })}
-                onKeyDown={e => e.stopPropagation()} />
-            </label>
-            <div className="flex gap-2">
-              <label className="text-xs text-gray-500 flex-1">起始位
-                <input type="number" className="w-full mt-0.5 px-2 py-1 border rounded text-xs" value={selectedField.startBit} min={0}
-                  onChange={e => onUpdate({ ...data, fields: data.fields.map(f => f.id === selectedField.id ? { ...f, startBit: parseInt(e.target.value) || 0 } : f) })}
-                  onKeyDown={e => e.stopPropagation()} />
-              </label>
-              <label className="text-xs text-gray-500 flex-1">结束位
-                <input type="number" className="w-full mt-0.5 px-2 py-1 border rounded text-xs" value={selectedField.endBit} min={selectedField.startBit}
-                  onChange={e => onUpdate({ ...data, fields: data.fields.map(f => f.id === selectedField.id ? { ...f, endBit: parseInt(e.target.value) || selectedField.startBit } : f) })}
-                  onKeyDown={e => e.stopPropagation()} />
-              </label>
-            </div>
-            <div className="text-xs text-gray-400">宽度: {selectedField.endBit - selectedField.startBit + 1} 位</div>
-          </div>
-        )}
       </div>
     </div>
   )

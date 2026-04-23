@@ -17,7 +17,7 @@ export default function SequenceCanvas() {
   const containerRef = useRef<HTMLDivElement>(null)
 
   const {
-    participants, messages, fragments,
+    participants, messages, fragments, activations,
     viewTransform, setViewTransform,
     connecting, updateConnectionMouse, cancelConnection, endConnection,
     clearSelection, setContextMenu,
@@ -345,6 +345,7 @@ export default function SequenceCanvas() {
               participant={p}
               lifelineHeight={lifelineH}
               viewScale={viewTransform.scale}
+              activations={activations}
             />
           ))}
 

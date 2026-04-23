@@ -24,6 +24,9 @@ import { parseTreeViewDiagram, serializeTreeViewDiagram, type TreeViewData } fro
 import { parseBlockDiagram, serializeBlockDiagram, type BlockData } from '@/lib/blockParser'
 import { useSeqEditorStore } from '@/lib/seqEditorStore'
 import { parseSeqCode, serializeSeqCode } from '@/lib/seqParser'
+import { usePacketEditorStore } from '@/lib/packetEditorStore'
+import { useKanbanEditorStore } from '@/lib/kanbanEditorStore'
+import { useBlockEditorStore } from '@/lib/blockEditorStore'
 import { parseMermaidStateDiagram } from '@/lib/stateParser'
 import { serializeStateDiagram } from '@/lib/diagramSerializers'
 import AiChatBox from './AiChatBox'
@@ -69,9 +72,13 @@ export default function VisualEditor() {
       const result = parseMermaidXyChart(code)
       if (result.data) setXyDraft(result.data)
     } else if (dt === 'packet') {
-      setPacketDraft(parsePacketDiagram(code))
+      const pd = parsePacketDiagram(code)
+      setPacketDraft(pd)
+      usePacketEditorStore.getState().setData(pd)
     } else if (dt === 'kanban') {
-      setKanbanDraft(parseKanbanDiagram(code))
+      const kd = parseKanbanDiagram(code)
+      setKanbanDraft(kd)
+      useKanbanEditorStore.getState().setData(kd)
     } else if (dt === 'mindmap') {
       setMindmapDraft(parseMindmap(code))
     } else if (dt === 'timeline') {
@@ -79,10 +86,12 @@ export default function VisualEditor() {
     } else if (dt === 'treeView') {
       setTreeViewDraft(parseTreeViewDiagram(code))
     } else if (dt === 'block') {
-      setBlockDraft(parseBlockDiagram(code))
+      const bd = parseBlockDiagram(code)
+      setBlockDraft(bd)
+      useBlockEditorStore.getState().setData(bd)
     } else if (dt === 'sequenceDiagram') {
       const result = parseSeqCode(code)
-      useSeqEditorStore.getState().initSeqGraph(result.participants, result.messages, result.fragments)
+      useSeqEditorStore.getState().initSeqGraph(result.participants, result.messages, result.fragments, result.activations)
     } else if (dt === 'stateDiagram') {
       const result = parseMermaidStateDiagram(code)
       if (result.error) {
@@ -141,8 +150,8 @@ export default function VisualEditor() {
     } else if (currentDt === 'block' && blockDraft) {
       code = serializeBlockDiagram(blockDraft)
     } else if (currentDt === 'sequenceDiagram') {
-      const { participants, messages, fragments } = useSeqEditorStore.getState()
-      code = serializeSeqCode(participants, messages, fragments)
+      const { participants, messages, fragments, activations } = useSeqEditorStore.getState()
+      code = serializeSeqCode(participants, messages, fragments, activations)
     } else if (currentDt === 'stateDiagram') {
       const { nodes, edges } = useGraphEditorStore.getState()
       // 转换为 ReactFlow 格式

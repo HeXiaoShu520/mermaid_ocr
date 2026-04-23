@@ -144,8 +144,8 @@ export default function SeqMessageLine({ message, participants }: Props) {
         />
       )}
 
-      {/* 箭头 */}
-      {message.arrow !== 'none' && (
+      {/* 箭头：filled=->> 实心，none=-) 开放空心，open=-> 无箭头 */}
+      {message.arrow !== 'open' && (
         isSelf ? (
           <polygon
             points={`${x1},${y + 40} ${x1 - 5},${y + 35} ${x1 + 5},${y + 35}`}

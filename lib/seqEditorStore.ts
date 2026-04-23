@@ -42,6 +42,13 @@ export interface SeqFragment {
   sections?: SeqFragmentSection[]  // alt/par 的分支
 }
 
+export interface SeqActivation {
+  id: string
+  participantId: string
+  order: number   // 浮点数，插在消息之间（如 1.5 表示在 order=1 的消息之后）
+  type: 'activate' | 'deactivate'
+}
+
 export interface SeqConnectionState {
   fromId: string
   fromY: number
@@ -55,6 +62,7 @@ interface SeqEditorState {
   participants: SeqParticipant[]
   messages: SeqMessage[]
   fragments: SeqFragment[]
+  activations: SeqActivation[]
 
   // 选中状态
   selectedParticipantId: string | null
@@ -102,6 +110,10 @@ interface SeqEditorState {
   updateFragment: (id: string, patch: Partial<SeqFragment>) => void
   removeFragment: (id: string) => void
 
+  // 激活条
+  addActivation: (a: SeqActivation) => void
+  removeActivation: (id: string) => void
+
   // 选中
   selectParticipant: (id: string | null) => void
   selectMessage: (id: string | null) => void
@@ -124,7 +136,7 @@ interface SeqEditorState {
   setPendingAddType: (type: SeqEditorState['pendingAddType']) => void
 
   // 初始化
-  initSeqGraph: (participants: SeqParticipant[], messages: SeqMessage[], fragments?: SeqFragment[]) => void
+  initSeqGraph: (participants: SeqParticipant[], messages: SeqMessage[], fragments?: SeqFragment[], activations?: SeqActivation[]) => void
 }
 
 // ─── 常量 ───
@@ -141,6 +153,7 @@ export const useSeqEditorStore = create<SeqEditorState>((set, get) => ({
   participants: [],
   messages: [],
   fragments: [],
+  activations: [],
   selectedParticipantId: null,
   selectedMessageId: null,
   selectedFragmentId: null,
@@ -245,6 +258,10 @@ export const useSeqEditorStore = create<SeqEditorState>((set, get) => ({
       }),
     })
   },
+
+  // ─── Activation Actions ───
+  addActivation: (a) => set({ activations: [...get().activations, a] }),
+  removeActivation: (id) => set({ activations: get().activations.filter(a => a.id !== id) }),
 
   // ─── Fragment Actions ───
   addFragment: (f) => set({ fragments: [...get().fragments, f] }),
@@ -362,11 +379,12 @@ export const useSeqEditorStore = create<SeqEditorState>((set, get) => ({
   setPendingAddType: (type) => set({ pendingAddType: type }),
 
   // ─── Init ───
-  initSeqGraph: (participants, messages, fragments = []) => {
+  initSeqGraph: (participants, messages, fragments = [], activations = []) => {
     set({
       participants,
       messages,
       fragments,
+      activations,
       selectedParticipantId: null,
       selectedMessageId: null,
       selectedFragmentId: null,

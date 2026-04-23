@@ -127,20 +127,38 @@ export const templateCategories: TemplateCategory[] = [
     line [200, 400, 800, 1500, 3000, 5000]`,
       },
       {
+        name: "思维导图",
+        code: `mindmap
+  root((中心主题))
+    技术栈
+      前端
+        React
+        TypeScript
+      后端
+        Node.js
+        数据库
+    功能模块
+      用户管理
+      数据分析
+    计划
+      第一阶段
+      第二阶段`,
+      },
+      {
         name: "树形图",
         code: `treeView-beta
-  root[项目结构]
-    src[源代码]
-      components[组件]
-        Header[头部]
-        Footer[底部]
-      lib[工具库]
-        utils[工具函数]
-        hooks[自定义Hook]
-    public[静态资源]
-      images[图片]
-      fonts[字体]
-    docs[文档]`,
+    "项目结构"
+        "源代码"
+            "组件"
+                "头部"
+                "底部"
+            "工具库"
+                "工具函数"
+                "自定义Hook"
+        "静态资源"
+            "图片"
+            "字体"
+        "文档"`,
       },
       {
         name: "块图",

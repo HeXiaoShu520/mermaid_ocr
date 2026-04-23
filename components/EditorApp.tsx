@@ -21,6 +21,13 @@ import VisualEditor from "@/components/editor/VisualEditor";
 import { useAiStore } from "@/lib/aiStore";
 import { dagreLayout } from "@/lib/graphLayout";
 import { useSeqEditorStore } from "@/lib/seqEditorStore";
+import { usePacketEditorStore } from "@/lib/packetEditorStore";
+import { useKanbanEditorStore } from "@/lib/kanbanEditorStore";
+import { useBlockEditorStore } from "@/lib/blockEditorStore";
+import { serializePacketDiagram } from "@/lib/packetParser";
+import { serializeKanbanDiagram, type KanbanItem } from "@/lib/kanbanParser";
+import { serializeBlockDiagram } from "@/lib/blockParser";
+import type { BlockShape } from "@/lib/blockParser";
 
 mermaid.initialize({ startOnLoad: false, logLevel: 'error' });
 
@@ -713,7 +720,14 @@ function StateDiagramSettingsSection() {
 }
 
 function SequenceDiagramSettingsSection() {
-  const { pendingAddType, setPendingAddType } = useSeqEditorStore();
+  const { pendingAddType, setPendingAddType, participants, messages, selectedMessageId, activations, addActivation, removeActivation } = useSeqEditorStore();
+
+  const selectedMsg = messages.find(m => m.id === selectedMessageId) ?? null
+
+  const handleAddActivation = (participantId: string, type: 'activate' | 'deactivate') => {
+    const order = selectedMsg ? selectedMsg.order + 0.5 : (messages.length > 0 ? Math.max(...messages.map(m => m.order)) + 0.5 : 0.5)
+    addActivation({ id: `act-${Date.now()}`, participantId, order, type })
+  }
 
   const PARTICIPANTS = [
     { type: 'participant' as const, label: '参与者', icon: '▭' },
@@ -783,20 +797,318 @@ function SequenceDiagramSettingsSection() {
         style={{ fontSize: 10, padding: "4px 8px", color: "#9CA3AF", display: pendingAddType ? 'block' : 'none' }}>
         取消选择
       </FlatButton>
+      {participants.length > 0 && (
+        <div>
+          <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 4 }}>
+            激活条{selectedMsg ? `（在消息 "${selectedMsg.label}" 之后）` : '（在末尾）'}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            {participants.map(p => (
+              <div key={p.id} style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 3, alignItems: "center" }}>
+                <span style={{ fontSize: 10, color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.label}</span>
+                <FlatButton onClick={() => handleAddActivation(p.id, 'activate')} style={{ fontSize: 9, padding: "2px 5px" }}>激活</FlatButton>
+                <FlatButton onClick={() => handleAddActivation(p.id, 'deactivate')} style={{ fontSize: 9, padding: "2px 5px" }}>停用</FlatButton>
+              </div>
+            ))}
+          </div>
+          {activations.length > 0 && (
+            <div style={{ marginTop: 6 }}>
+              <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 3 }}>已有激活条</div>
+              {activations.map(a => (
+                <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 10, padding: "2px 0" }}>
+                  <span style={{ color: a.type === 'activate' ? '#059669' : '#dc2626' }}>
+                    {a.type === 'activate' ? '▶' : '■'} {a.participantId}
+                  </span>
+                  <button onClick={() => removeActivation(a.id)} style={{ fontSize: 9, color: "#9CA3AF", background: "none", border: "none", cursor: "pointer", padding: "0 2px" }}>✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
+/* ─── Packet Editor Panel ─── */
+function PacketEditorPanel() {
+  const { data, selectedId, resizeMode, setResizeMode, setSelectedId, updateData } = usePacketEditorStore()
+  const { setMermaid } = useStore()
+
+  if (!data) return <div style={{ fontSize: 11, color: "#9CA3AF", textAlign: "center", padding: "12px 0" }}>点击"读取代码"加载图表</div>
+
+  const selectedField = data.fields.find(f => f.id === selectedId) ?? null
+
+  const handleFieldChange = (patch: Partial<typeof data.fields[0]>) => {
+    if (!selectedField) return
+    const newData = { ...data, fields: data.fields.map(f => f.id === selectedId ? { ...f, ...patch } : f) }
+    updateData(newData)
+    setMermaid(serializePacketDiagram(newData))
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div>
+        <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 4 }}>碰撞模式</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
+          <FlatButton onClick={() => setResizeMode('push')} active={resizeMode === 'push'} style={{ fontSize: 10 }}>顺延</FlatButton>
+          <FlatButton onClick={() => setResizeMode('cover')} active={resizeMode === 'cover'} style={{ fontSize: 10 }}>覆盖</FlatButton>
+        </div>
+      </div>
+      <div>
+        <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 4 }}>字段列表（共 {data.fields.length} 个）</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          {data.fields.map(f => (
+            <div key={f.id}
+              onClick={() => setSelectedId(selectedId === f.id ? null : f.id)}
+              style={{
+                padding: "4px 8px", borderRadius: 4, fontSize: 11, cursor: "pointer",
+                background: selectedId === f.id ? "#EEF2FF" : "#fff",
+                border: `1px solid ${selectedId === f.id ? "#4F46E5" : "#e5e7eb"}`,
+                color: selectedId === f.id ? "#4F46E5" : "#374151",
+              }}>
+              <span style={{ fontFamily: "monospace", fontSize: 10, color: "#9CA3AF" }}>{f.startBit}-{f.endBit}</span> {f.label}
+            </div>
+          ))}
+        </div>
+      </div>
+      {selectedField && (
+        <div style={{ background: "#f9fafb", borderRadius: 6, padding: 8, border: "1px solid #e5e7eb" }}>
+          <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 6 }}>选中字段</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div>
+              <div style={{ fontSize: 10, color: "#6B7280", marginBottom: 2 }}>标签</div>
+              <input
+                value={selectedField.label}
+                onChange={e => handleFieldChange({ label: e.target.value })}
+                style={{ width: "100%", border: "1px solid #e5e7eb", borderRadius: 4, padding: "3px 6px", fontSize: 11, outline: "none" }}
+              />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+              <div>
+                <div style={{ fontSize: 10, color: "#6B7280", marginBottom: 2 }}>起始位</div>
+                <input type="number" min={0}
+                  value={selectedField.startBit}
+                  onChange={e => handleFieldChange({ startBit: parseInt(e.target.value) || 0 })}
+                  style={{ width: "100%", border: "1px solid #e5e7eb", borderRadius: 4, padding: "3px 6px", fontSize: 11, outline: "none" }}
+                />
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: "#6B7280", marginBottom: 2 }}>结束位</div>
+                <input type="number" min={0}
+                  value={selectedField.endBit}
+                  onChange={e => handleFieldChange({ endBit: parseInt(e.target.value) || 0 })}
+                  style={{ width: "100%", border: "1px solid #e5e7eb", borderRadius: 4, padding: "3px 6px", fontSize: 11, outline: "none" }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+let _kanbanPanelColCounter = 0
+
+/* ─── Kanban Editor Panel ─── */
+function KanbanEditorPanel() {
+  const { data, selectedItemId, setSelectedItemId, updateData } = useKanbanEditorStore()
+  const { setMermaid } = useStore()
+
+  if (!data) return <div style={{ fontSize: 11, color: "#9CA3AF", textAlign: "center", padding: "12px 0" }}>点击"读取代码"加载图表</div>
+
+  const selectedInfo = (() => {
+    for (const col of data.columns) {
+      const item = col.items.find(i => i.id === selectedItemId)
+      if (item) return { col, item }
+    }
+    return null
+  })()
+
+  const commit = (newData: typeof data) => { updateData(newData); setMermaid(serializeKanbanDiagram(newData)) }
+
+  const addColumn = () => commit({ columns: [...data.columns, { id: `col-${++_kanbanPanelColCounter}`, label: '新列', items: [] }] })
+  const removeColumn = (colId: string) => commit({ columns: data.columns.filter(c => c.id !== colId) })
+
+  const handleItemChange = (patch: Partial<KanbanItem>) => {
+    if (!selectedInfo) return
+    commit({ columns: data.columns.map(c => c.id === selectedInfo.col.id
+      ? { ...c, items: c.items.map(i => i.id === selectedItemId ? { ...i, ...patch } : i) }
+      : c) })
+  }
+
+  const handleMetaChange = (key: string, value: string) => {
+    if (!selectedInfo) return
+    const meta = { ...(selectedInfo.item.metadata ?? {}) }
+    if (value) meta[key] = value; else delete meta[key]
+    handleItemChange({ metadata: Object.keys(meta).length ? meta : undefined })
+  }
+
+  const inputStyle: React.CSSProperties = { width: "100%", border: "1px solid #e5e7eb", borderRadius: 4, padding: "3px 6px", fontSize: 11, outline: "none" }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+          <span style={{ fontSize: 10, color: "#9CA3AF" }}>列（共 {data.columns.length} 列）</span>
+          <FlatButton onClick={addColumn} style={{ fontSize: 9, padding: "2px 6px" }}>+ 添加列</FlatButton>
+        </div>
+        {data.columns.map(col => (
+          <div key={col.id} style={{ marginBottom: 4 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: "#374151" }}>{col.label} <span style={{ fontSize: 10, color: "#9CA3AF" }}>({col.items.length})</span></span>
+              <button onClick={() => removeColumn(col.id)} style={{ fontSize: 9, color: "#9CA3AF", background: "none", border: "none", cursor: "pointer" }}>✕</button>
+            </div>
+            <div style={{ paddingLeft: 8, display: "flex", flexDirection: "column", gap: 2, marginTop: 2 }}>
+              {col.items.map(item => (
+                <div key={item.id}
+                  onClick={() => setSelectedItemId(selectedItemId === item.id ? null : item.id)}
+                  style={{
+                    padding: "3px 6px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+                    background: selectedItemId === item.id ? "#EEF2FF" : "#f9fafb",
+                    border: `1px solid ${selectedItemId === item.id ? "#4F46E5" : "#e5e7eb"}`,
+                    color: selectedItemId === item.id ? "#4F46E5" : "#374151",
+                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                  }}>
+                  {item.label}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      {selectedInfo && (
+        <div style={{ background: "#f9fafb", borderRadius: 6, padding: 8, border: "1px solid #e5e7eb", display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ fontSize: 10, color: "#9CA3AF" }}>选中卡片 · {selectedInfo.col.label}</div>
+          <div>
+            <div style={{ fontSize: 10, color: "#6B7280", marginBottom: 2 }}>标签</div>
+            <textarea value={selectedInfo.item.label} onChange={e => handleItemChange({ label: e.target.value })}
+              rows={2} style={{ ...inputStyle, resize: "vertical" }} />
+          </div>
+          <div>
+            <div style={{ fontSize: 10, color: "#6B7280", marginBottom: 2 }}>负责人</div>
+            <input value={selectedInfo.item.metadata?.assignee ?? ''} onChange={e => handleMetaChange('assignee', e.target.value)}
+              placeholder="@张三" style={inputStyle} />
+          </div>
+          <div>
+            <div style={{ fontSize: 10, color: "#6B7280", marginBottom: 2 }}>优先级</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 3 }}>
+              {(['Very High', 'High', 'Medium', 'Low', 'Very Low'] as const).map(p => (
+                <FlatButton key={p} onClick={() => handleMetaChange('priority', selectedInfo.item.metadata?.priority === p ? '' : p)}
+                  active={selectedInfo.item.metadata?.priority === p}
+                  style={{ fontSize: 9, padding: "2px 4px" }}>{p}</FlatButton>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ─── Block Editor Panel ─── */
+const BLOCK_SHAPES: { value: BlockShape; label: string }[] = [
+  { value: 'rectangle', label: '矩形' },
+  { value: 'rounded', label: '圆角' },
+  { value: 'stadium', label: '体育场' },
+  { value: 'subroutine', label: '子程序' },
+  { value: 'cylinder', label: '圆柱' },
+  { value: 'circle', label: '圆形' },
+  { value: 'diamond', label: '菱形' },
+  { value: 'hexagon', label: '六边形' },
+  { value: 'parallelogram', label: '平行四边形' },
+  { value: 'trapezoid', label: '梯形' },
+  { value: 'double-circle', label: '双圆' },
+]
+
+function BlockEditorPanel() {
+  const { data, selectedId, setSelectedId, updateData } = useBlockEditorStore()
+  const { setMermaid } = useStore()
+
+  if (!data) return <div style={{ fontSize: 11, color: "#9CA3AF", textAlign: "center", padding: "12px 0" }}>点击"读取代码"加载图表</div>
+
+  const selectedBlock = data.blocks.find(b => b.id === selectedId) ?? null
+
+  const handleBlockChange = (patch: Partial<typeof data.blocks[0]>) => {
+    if (!selectedBlock) return
+    const newData = { ...data, blocks: data.blocks.map(b => b.id === selectedId ? { ...b, ...patch } : b) }
+    updateData(newData)
+    setMermaid(serializeBlockDiagram(newData))
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div>
+        <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 4 }}>块列表（共 {data.blocks.filter(b => !b.isSpace).length} 个）</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          {data.blocks.filter(b => !b.isSpace).map(b => (
+            <div key={b.id}
+              onClick={() => setSelectedId(selectedId === b.id ? null : b.id)}
+              style={{
+                padding: "4px 8px", borderRadius: 4, fontSize: 11, cursor: "pointer",
+                background: selectedId === b.id ? "#EEF2FF" : "#fff",
+                border: `1px solid ${selectedId === b.id ? "#4F46E5" : "#e5e7eb"}`,
+                color: selectedId === b.id ? "#4F46E5" : "#374151",
+                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+              }}>
+              <span style={{ fontSize: 9, color: "#9CA3AF", marginRight: 4 }}>{b.shape}</span>{b.label}
+            </div>
+          ))}
+        </div>
+      </div>
+      {selectedBlock && !selectedBlock.isSpace && (
+        <div style={{ background: "#f9fafb", borderRadius: 6, padding: 8, border: "1px solid #e5e7eb" }}>
+          <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 6 }}>选中块</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div>
+              <div style={{ fontSize: 10, color: "#6B7280", marginBottom: 2 }}>标签</div>
+              <input
+                value={selectedBlock.label}
+                onChange={e => handleBlockChange({ label: e.target.value })}
+                style={{ width: "100%", border: "1px solid #e5e7eb", borderRadius: 4, padding: "3px 6px", fontSize: 11, outline: "none" }}
+              />
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: "#6B7280", marginBottom: 2 }}>形状</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 3 }}>
+                {BLOCK_SHAPES.map(s => (
+                  <FlatButton key={s.value} onClick={() => handleBlockChange({ shape: s.value })} active={selectedBlock.shape === s.value}
+                    style={{ fontSize: 10, padding: "3px 6px" }}>{s.label}</FlatButton>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ─── Right Sidebar: Object Settings ─── */
 function RightSidebar({ supported, diagramType }: { supported: boolean; diagramType: string }) {
-  // packet、kanban、treeView、block 编辑器自带右侧面板，不显示独立的右侧栏
-  if (!supported || diagramType === 'packet' || diagramType === 'kanban' || diagramType === 'treeView' || diagramType === 'block') return null;
+  if (!supported || diagramType === 'treeView') return null;
 
   return (
     <div style={{
       width: 260, background: NEU_BG, borderLeft: PANEL_BORDER,
       padding: 12, overflowY: "auto", flexShrink: 0, display: "flex", flexDirection: "column", gap: 14,
     }}>
+      {diagramType === 'packet' && (
+        <Section title="数据包字段">
+          <PacketEditorPanel />
+        </Section>
+      )}
+      {diagramType === 'kanban' && (
+        <Section title="看板">
+          <KanbanEditorPanel />
+        </Section>
+      )}
+      {diagramType === 'block' && (
+        <Section title="块图">
+          <BlockEditorPanel />
+        </Section>
+      )}
       {diagramType === 'flowchart' && (
         <>
           <Section title="流程图设置">

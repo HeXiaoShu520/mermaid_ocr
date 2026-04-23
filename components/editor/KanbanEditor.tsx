@@ -2,8 +2,8 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 
-
 import type { KanbanData, KanbanColumn, KanbanItem } from '@/lib/kanbanParser'
+import { useKanbanEditorStore } from '@/lib/kanbanEditorStore'
 
 interface KanbanEditorProps {
   data: KanbanData
@@ -23,27 +23,18 @@ let _itemCounter = 100
 export function KanbanEditor({ data, onUpdate }: KanbanEditorProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
-  const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
+  const { selectedItemId, setSelectedItemId, updateData } = useKanbanEditorStore()
+
+  const handleUpdate = useCallback((newData: KanbanData) => {
+    onUpdate(newData)
+    updateData(newData)
+  }, [onUpdate, updateData])
 
   // 画布平移/缩放
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 })
   const canvasRef = useRef<HTMLDivElement>(null)
   const isPanning = useRef(false)
   const panStart = useRef({ x: 0, y: 0, tx: 0, ty: 0 })
-
-  const [rightW, setRightW] = useState(240)
-  const dividerDrag = useRef<{ startX: number; startW: number } | null>(null)
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      if (!dividerDrag.current) return
-      const dx = dividerDrag.current.startX - e.clientX
-      setRightW(Math.max(160, Math.min(480, dividerDrag.current.startW + dx)))
-    }
-    const onUp = () => { dividerDrag.current = null }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
-  }, [])
 
   // 拖拽状态：列排序 + 卡片排序
   const dragCol = useRef<string | null>(null)
@@ -86,40 +77,40 @@ export function KanbanEditor({ data, onUpdate }: KanbanEditorProps) {
 
   // ─── Column actions ───
   const addColumn = useCallback(() => {
-    onUpdate({ columns: [...data.columns, { id: `col-${++_colCounter}`, label: '新列', items: [] }] })
-  }, [data, onUpdate])
+    handleUpdate({ columns: [...data.columns, { id: `col-${++_colCounter}`, label: '新列', items: [] }] })
+  }, [data, handleUpdate])
 
   const removeColumn = useCallback((colId: string) => {
-    onUpdate({ columns: data.columns.filter(c => c.id !== colId) })
-  }, [data, onUpdate])
+    handleUpdate({ columns: data.columns.filter(c => c.id !== colId) })
+  }, [data, handleUpdate])
 
   // ─── Item actions ───
   const addItem = useCallback((colId: string) => {
     const newItem: KanbanItem = { id: `item-${++_itemCounter}`, label: '新任务' }
-    onUpdate({ columns: data.columns.map(c => c.id === colId ? { ...c, items: [...c.items, newItem] } : c) })
+    handleUpdate({ columns: data.columns.map(c => c.id === colId ? { ...c, items: [...c.items, newItem] } : c) })
     setSelectedItemId(newItem.id)
-  }, [data, onUpdate])
+  }, [data, handleUpdate])
 
   const removeItem = useCallback((colId: string, itemId: string) => {
-    onUpdate({ columns: data.columns.map(c => c.id === colId ? { ...c, items: c.items.filter(i => i.id !== itemId) } : c) })
+    handleUpdate({ columns: data.columns.map(c => c.id === colId ? { ...c, items: c.items.filter(i => i.id !== itemId) } : c) })
     if (selectedItemId === itemId) setSelectedItemId(null)
-  }, [data, onUpdate, selectedItemId])
+  }, [data, handleUpdate, selectedItemId])
 
   const updateItem = useCallback((colId: string, itemId: string, patch: Partial<KanbanItem>) => {
-    onUpdate({ columns: data.columns.map(c => c.id === colId ? { ...c, items: c.items.map(i => i.id === itemId ? { ...i, ...patch } : i) } : c) })
-  }, [data, onUpdate])
+    handleUpdate({ columns: data.columns.map(c => c.id === colId ? { ...c, items: c.items.map(i => i.id === itemId ? { ...i, ...patch } : i) } : c) })
+  }, [data, handleUpdate])
 
   const commitEdit = useCallback((type: 'column' | 'item', colId: string, itemId?: string) => {
     const trimmed = draft.trim()
     if (trimmed) {
       if (type === 'column') {
-        onUpdate({ columns: data.columns.map(c => c.id === colId ? { ...c, label: trimmed } : c) })
+        handleUpdate({ columns: data.columns.map(c => c.id === colId ? { ...c, label: trimmed } : c) })
       } else if (itemId) {
         updateItem(colId, itemId, { label: trimmed })
       }
     }
     setEditingId(null)
-  }, [draft, data, onUpdate, updateItem])
+  }, [draft, data, handleUpdate, updateItem])
 
   // ─── 列拖拽排序 ───
   const handleColDragStart = useCallback((e: React.DragEvent, colId: string) => {
@@ -146,9 +137,9 @@ export function KanbanEditor({ data, onUpdate }: KanbanEditorProps) {
     if (fromIdx < 0 || toIdx < 0) { dragCol.current = null; return }
     const [moved] = cols.splice(fromIdx, 1)
     cols.splice(toIdx, 0, moved)
-    onUpdate({ columns: cols })
+    handleUpdate({ columns: cols })
     dragCol.current = null
-  }, [data, onUpdate])
+  }, [data, handleUpdate])
 
   // ─── 卡片拖拽排序（列内上下 + 跨列） ───
   const handleItemDragStart = useCallback((e: React.DragEvent, itemId: string, colId: string) => {
@@ -181,9 +172,9 @@ export function KanbanEditor({ data, onUpdate }: KanbanEditorProps) {
     fromCol.items = fromCol.items.filter(i => i.id !== itemId)
     const toIdx = toCol.items.findIndex(i => i.id === toItemId)
     toCol.items.splice(toIdx, 0, item)
-    onUpdate({ columns: cols })
+    handleUpdate({ columns: cols })
     dragItem.current = null
-  }, [data, onUpdate])
+  }, [data, handleUpdate])
 
   const handleColDropEmpty = useCallback((e: React.DragEvent, toColId: string) => {
     e.preventDefault()
@@ -194,7 +185,7 @@ export function KanbanEditor({ data, onUpdate }: KanbanEditorProps) {
     if (fromColId === toColId) { dragItem.current = null; return }
     const fromCol = data.columns.find(c => c.id === fromColId)!
     const item = fromCol.items.find(i => i.id === itemId)!
-    onUpdate({
+    handleUpdate({
       columns: data.columns.map(c => {
         if (c.id === fromColId) return { ...c, items: c.items.filter(i => i.id !== itemId) }
         if (c.id === toColId) return { ...c, items: [...c.items, item] }
@@ -202,7 +193,7 @@ export function KanbanEditor({ data, onUpdate }: KanbanEditorProps) {
       }),
     })
     dragItem.current = null
-  }, [data, onUpdate, handleColDrop])
+  }, [data, handleUpdate, handleColDrop])
 
   const findItemColumn = (itemId: string) => {
     for (const col of data.columns) {
@@ -211,7 +202,6 @@ export function KanbanEditor({ data, onUpdate }: KanbanEditorProps) {
     }
     return null
   }
-  const selectedInfo = selectedItemId ? findItemColumn(selectedItemId) : null
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -309,95 +299,6 @@ export function KanbanEditor({ data, onUpdate }: KanbanEditorProps) {
         <div className="absolute bottom-3 right-3 text-xs text-gray-400 bg-white/80 px-2 py-1 rounded select-none">
           {Math.round(transform.scale * 100)}% · 滚轮缩放 · 中键拖拽
         </div>
-      </div>
-
-      {/* 右侧属性面板（常驻） */}
-      <div
-        style={{ width: 4, cursor: 'col-resize', background: 'transparent', flexShrink: 0 }}
-        className="hover:bg-blue-300 transition-colors"
-        onMouseDown={e => { dividerDrag.current = { startX: e.clientX, startW: rightW } }}
-      />
-      <div className="border-l bg-gray-50 overflow-y-auto p-3 flex flex-col gap-3 flex-shrink-0" style={{ width: rightW }}>
-        <button onClick={addColumn} className="w-full py-2 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors">
-          + 添加列
-        </button>
-        {selectedInfo ? (
-          <>
-            <div className="text-xs font-semibold text-gray-600">卡片属性</div>
-            <label className="text-xs text-gray-500">标签
-              <textarea className="w-full mt-0.5 px-2 py-1 border rounded text-xs resize-none" rows={3}
-                value={selectedInfo.item.label}
-                onChange={e => updateItem(selectedInfo.col.id, selectedInfo.item.id, { label: e.target.value })}
-                onKeyDown={e => e.stopPropagation()} />
-            </label>
-            <label className="text-xs text-gray-500">负责人
-              <input className="w-full mt-0.5 px-2 py-1 border rounded text-xs"
-                value={selectedInfo.item.metadata?.assigned || ''}
-                onChange={e => {
-                  const meta: Record<string, string> = { ...selectedInfo.item.metadata }
-                  if (e.target.value) meta.assigned = e.target.value; else delete meta.assigned
-                  updateItem(selectedInfo.col.id, selectedInfo.item.id, { metadata: Object.keys(meta).length ? meta : undefined })
-                }}
-                onKeyDown={e => e.stopPropagation()} placeholder="如: knsv" />
-            </label>
-            <label className="text-xs text-gray-500">优先级
-              <select className="w-full mt-0.5 px-2 py-1 border rounded text-xs"
-                value={selectedInfo.item.metadata?.priority || ''}
-                onChange={e => {
-                  const meta: Record<string, string> = { ...selectedInfo.item.metadata }
-                  if (e.target.value) meta.priority = e.target.value; else delete meta.priority
-                  updateItem(selectedInfo.col.id, selectedInfo.item.id, { metadata: Object.keys(meta).length ? meta : undefined })
-                }}>
-                <option value="">无</option>
-                {['Very High','High','Medium','Low','Very Low'].map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
-            </label>
-            <label className="text-xs text-gray-500">工单号
-              <input className="w-full mt-0.5 px-2 py-1 border rounded text-xs"
-                value={selectedInfo.item.metadata?.ticket || ''}
-                onChange={e => {
-                  const meta: Record<string, string> = { ...selectedInfo.item.metadata }
-                  if (e.target.value) meta.ticket = e.target.value; else delete meta.ticket
-                  updateItem(selectedInfo.col.id, selectedInfo.item.id, { metadata: Object.keys(meta).length ? meta : undefined })
-                }}
-                onKeyDown={e => e.stopPropagation()} placeholder="如: MC-2038" />
-            </label>
-            <label className="text-xs text-gray-500">所在列
-              <select className="w-full mt-0.5 px-2 py-1 border rounded text-xs"
-                value={selectedInfo.col.id}
-                onChange={e => {
-                  const toColId = e.target.value
-                  if (toColId === selectedInfo.col.id) return
-                  const item = selectedInfo.item
-                  onUpdate({ columns: data.columns.map(c => {
-                    if (c.id === selectedInfo.col.id) return { ...c, items: c.items.filter(i => i.id !== item.id) }
-                    if (c.id === toColId) return { ...c, items: [...c.items, item] }
-                    return c
-                  })})
-                }}>
-                {data.columns.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-              </select>
-            </label>
-            <button onClick={() => removeItem(selectedInfo.col.id, selectedInfo.item.id)}
-              className="text-xs px-2 py-1 bg-red-50 text-red-500 border border-red-200 rounded hover:bg-red-100">
-              删除卡片
-            </button>
-          </>
-        ) : (
-          <>
-            <div className="text-xs text-gray-400 text-center pt-2 pb-1">点击卡片查看属性</div>
-            <div className="flex flex-col gap-1">
-              {data.columns.map((col, colIdx) => (
-                <div key={col.id} className="rounded-lg p-2 text-xs" style={{ background: COLUMN_COLORS[colIdx % COLUMN_COLORS.length] }}>
-                  <div className="font-semibold text-gray-700 flex items-center justify-between">
-                    <span>{col.label}</span>
-                    <span className="text-gray-400 font-normal">{col.items.length}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
       </div>
     </div>
   )

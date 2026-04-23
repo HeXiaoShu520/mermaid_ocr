@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import type { BlockData, BlockItem, BlockShape } from '@/lib/blockParser'
+import { useBlockEditorStore } from '@/lib/blockEditorStore'
 
 interface BlockEditorProps {
   data: BlockData
@@ -176,36 +177,41 @@ function BlockShapePreview({ shape, label, width, height, selected }: {
 }
 
 export function BlockEditor({ data, onUpdate }: BlockEditorProps) {
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const { selectedId, setSelectedId, updateData } = useBlockEditorStore()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 })
   const isPanningRef = useRef(false)
   const panStartRef = useRef({ x: 0, y: 0, offsetX: 0, offsetY: 0 })
 
+  const handleUpdate = useCallback((newData: BlockData) => {
+    onUpdate(newData)
+    updateData(newData)
+  }, [onUpdate, updateData])
+
   const selectedBlock = data.blocks.find(b => b.id === selectedId) ?? null
 
   const updateBlock = useCallback((id: string, patch: Partial<BlockItem>) => {
-    onUpdate({ ...data, blocks: data.blocks.map(b => b.id === id ? { ...b, ...patch } : b) })
-  }, [data, onUpdate])
+    handleUpdate({ ...data, blocks: data.blocks.map(b => b.id === id ? { ...b, ...patch } : b) })
+  }, [data, handleUpdate])
 
   const addBlock = useCallback((shape: BlockShape = 'rectangle') => {
     const id = `blk${++_blockItemCounter}`
     const newBlock: BlockItem = { id, label: '新块', shape }
-    onUpdate({ ...data, blocks: [...data.blocks, newBlock] })
+    handleUpdate({ ...data, blocks: [...data.blocks, newBlock] })
     setSelectedId(id)
     setTimeout(() => { setEditingId(id); setDraft('新块') }, 50)
-  }, [data, onUpdate])
+  }, [data, handleUpdate])
 
   const addSpace = useCallback(() => {
     const id = `space-${++_blockItemCounter}`
-    onUpdate({ ...data, blocks: [...data.blocks, { id, label: '', shape: 'rectangle', isSpace: true }] })
-  }, [data, onUpdate])
+    handleUpdate({ ...data, blocks: [...data.blocks, { id, label: '', shape: 'rectangle', isSpace: true }] })
+  }, [data, handleUpdate])
 
   const deleteBlock = useCallback((id: string) => {
-    onUpdate({ ...data, blocks: data.blocks.filter(b => b.id !== id) })
+    handleUpdate({ ...data, blocks: data.blocks.filter(b => b.id !== id) })
     if (selectedId === id) setSelectedId(null)
-  }, [data, onUpdate, selectedId])
+  }, [data, handleUpdate, selectedId])
 
   const commitEdit = useCallback(() => {
     if (!editingId) return
@@ -223,8 +229,8 @@ export function BlockEditor({ data, onUpdate }: BlockEditorProps) {
     } else if (dir === 'right' && idx < newBlocks.length - 1) {
       ;[newBlocks[idx], newBlocks[idx + 1]] = [newBlocks[idx + 1], newBlocks[idx]]
     }
-    onUpdate({ ...data, blocks: newBlocks })
-  }, [data, onUpdate])
+    handleUpdate({ ...data, blocks: newBlocks })
+  }, [data, handleUpdate])
 
   // 左键平移
   const handleCanvasMouseDown = useCallback((e: React.MouseEvent) => {
@@ -370,144 +376,6 @@ export function BlockEditor({ data, onUpdate }: BlockEditorProps) {
           >+</button>
           <span className="ml-2 text-gray-400">共 {data.blocks.filter(b => !b.isSpace).length} 个块</span>
         </div>
-      </div>
-
-      {/* 右侧属性面板 */}
-      <div className="w-64 border-l bg-gray-50 overflow-y-auto p-3 flex flex-col gap-3">
-        {/* 添加块 */}
-        <div>
-          <div className="text-xs font-semibold text-gray-600 mb-2">添加块</div>
-          <div className="grid grid-cols-2 gap-1">
-            {SHAPE_OPTIONS.slice(0, 6).map(opt => (
-              <button
-                key={opt.value}
-                onClick={() => addBlock(opt.value)}
-                className="text-xs px-2 py-1.5 bg-white border border-gray-200 rounded hover:bg-blue-50 hover:border-blue-300 transition-colors text-left"
-              >
-                <span className="font-mono text-gray-400 mr-1">{opt.preview}</span>
-                {opt.label}
-              </button>
-            ))}
-          </div>
-          <div className="grid grid-cols-2 gap-1 mt-1">
-            {SHAPE_OPTIONS.slice(6).map(opt => (
-              <button
-                key={opt.value}
-                onClick={() => addBlock(opt.value)}
-                className="text-xs px-2 py-1.5 bg-white border border-gray-200 rounded hover:bg-blue-50 hover:border-blue-300 transition-colors text-left"
-              >
-                <span className="font-mono text-gray-400 mr-1">{opt.preview}</span>
-                {opt.label}
-              </button>
-            ))}
-            <button
-              onClick={addSpace}
-              className="text-xs px-2 py-1.5 bg-white border border-dashed border-gray-300 rounded hover:bg-gray-100 transition-colors text-gray-400"
-            >
-              空白块
-            </button>
-          </div>
-        </div>
-
-        {/* 选中块属性 */}
-        {selectedBlock && !selectedBlock.isSpace && (
-          <div className="border-t pt-3 flex flex-col gap-2">
-            <div className="text-xs font-semibold text-gray-600">块属性</div>
-
-            <label className="text-xs text-gray-500">
-              ID
-              <input
-                className="w-full mt-0.5 px-2 py-1 border rounded text-xs bg-gray-100"
-                value={selectedBlock.id}
-                disabled
-              />
-            </label>
-
-            <label className="text-xs text-gray-500">
-              标签
-              <input
-                className="w-full mt-0.5 px-2 py-1 border rounded text-xs"
-                value={selectedBlock.label}
-                onChange={e => updateBlock(selectedBlock.id, { label: e.target.value })}
-                onKeyDown={e => e.stopPropagation()}
-              />
-            </label>
-
-            <label className="text-xs text-gray-500">
-              形状
-              <select
-                className="w-full mt-0.5 px-2 py-1 border rounded text-xs"
-                value={selectedBlock.shape}
-                onChange={e => updateBlock(selectedBlock.id, { shape: e.target.value as BlockShape })}
-              >
-                {SHAPE_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            </label>
-
-            <label className="text-xs text-gray-500">
-              跨列数
-              <input
-                type="number"
-                className="w-full mt-0.5 px-2 py-1 border rounded text-xs"
-                value={selectedBlock.colspan ?? 1}
-                min={1}
-                max={data.columns}
-                onChange={e => updateBlock(selectedBlock.id, { colspan: parseInt(e.target.value) || 1 })}
-                onKeyDown={e => e.stopPropagation()}
-              />
-            </label>
-
-            <div className="flex gap-1">
-              <button
-                onClick={() => moveBlock(selectedBlock.id, 'left')}
-                className="flex-1 text-xs px-2 py-1.5 bg-gray-50 text-gray-600 border border-gray-200 rounded hover:bg-gray-100 transition-colors"
-              >← 左移</button>
-              <button
-                onClick={() => moveBlock(selectedBlock.id, 'right')}
-                className="flex-1 text-xs px-2 py-1.5 bg-gray-50 text-gray-600 border border-gray-200 rounded hover:bg-gray-100 transition-colors"
-              >右移 →</button>
-            </div>
-
-            <button
-              onClick={() => deleteBlock(selectedBlock.id)}
-              className="text-xs px-2 py-1.5 bg-red-50 text-red-500 border border-red-200 rounded hover:bg-red-100 transition-colors"
-            >
-              删除块
-            </button>
-          </div>
-        )}
-
-        {selectedBlock?.isSpace && (
-          <div className="border-t pt-3 flex flex-col gap-2">
-            <div className="text-xs font-semibold text-gray-600">空白块</div>
-            <label className="text-xs text-gray-500">
-              跨列数
-              <input
-                type="number"
-                className="w-full mt-0.5 px-2 py-1 border rounded text-xs"
-                value={selectedBlock.colspan ?? 1}
-                min={1}
-                max={data.columns}
-                onChange={e => updateBlock(selectedBlock.id, { colspan: parseInt(e.target.value) || 1 })}
-                onKeyDown={e => e.stopPropagation()}
-              />
-            </label>
-            <button
-              onClick={() => deleteBlock(selectedBlock.id)}
-              className="text-xs px-2 py-1.5 bg-red-50 text-red-500 border border-red-200 rounded hover:bg-red-100 transition-colors"
-            >
-              删除空白块
-            </button>
-          </div>
-        )}
-
-        {!selectedBlock && (
-          <div className="text-xs text-gray-400 text-center py-4">
-            点击块查看属性<br />双击块编辑标签
-          </div>
-        )}
       </div>
     </div>
   )

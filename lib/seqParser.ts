@@ -3,7 +3,7 @@
  * 支持 participant, message, fragment (loop/alt/opt/par/critical/break/rect)
  */
 
-import type { SeqParticipant, SeqMessage, SeqFragment, SeqFragmentSection } from './seqEditorStore'
+import type { SeqParticipant, SeqMessage, SeqFragment, SeqFragmentSection, SeqActivation } from './seqEditorStore'
 import { SEQ_PAD_X, SEQ_COL_W } from './seqEditorStore'
 
 // ─── 解析 ───────────────────────────────────────────────────────────────────
@@ -12,6 +12,7 @@ export interface SeqParseResult {
   participants: SeqParticipant[]
   messages: SeqMessage[]
   fragments: SeqFragment[]
+  activations: SeqActivation[]
 }
 
 const FRAGMENT_TYPES = ['loop', 'alt', 'opt', 'par', 'critical', 'break', 'rect'] as const
@@ -31,6 +32,7 @@ export function parseSeqCode(code: string): SeqParseResult {
   const participants: SeqParticipant[] = []
   const messages: SeqMessage[] = []
   const fragments: SeqFragment[] = []
+  const activations: SeqActivation[] = []
   const pMap = new Map<string, string>()
   let msgOrder = 0
 
@@ -127,8 +129,21 @@ export function parseSeqCode(code: string): SeqParseResult {
 
     // Note（跳过，暂不支持）
     if (/^Note\s/i.test(line)) continue
-    // activate/deactivate（跳过）
-    if (/^(activate|deactivate)\s/i.test(line)) continue
+
+    // activate / deactivate
+    const actMatch = line.match(/^(activate|deactivate)\s+(\S+)$/i)
+    if (actMatch) {
+      const type = actMatch[1].toLowerCase() as 'activate' | 'deactivate'
+      const participantId = actMatch[2]
+      ensure(participantId)
+      activations.push({
+        id: `act-${activations.length}`,
+        participantId,
+        order: msgOrder - 0.5,
+        type,
+      })
+      continue
+    }
 
     // 消息
     let matched = false
@@ -166,7 +181,7 @@ export function parseSeqCode(code: string): SeqParseResult {
     if (matched) continue
   }
 
-  return { participants, messages, fragments }
+  return { participants, messages, fragments, activations }
 }
 
 // ─── 序列化 ─────────────────────────────────────────────────────────────────
@@ -174,7 +189,8 @@ export function parseSeqCode(code: string): SeqParseResult {
 export function serializeSeqCode(
   participants: SeqParticipant[],
   messages: SeqMessage[],
-  fragments: SeqFragment[] = []
+  fragments: SeqFragment[] = [],
+  activations: SeqActivation[] = []
 ): string {
   const lines: string[] = ['sequenceDiagram']
 
@@ -243,6 +259,14 @@ export function serializeSeqCode(
       order: m.order,
       priority: 0.5,
       text: `    ${m.from} ${conn} ${m.to}: ${m.label}`,
+    })
+  }
+
+  for (const a of activations) {
+    items.push({
+      order: a.order,
+      priority: a.type === 'activate' ? 0.3 : 0.7,
+      text: `    ${a.type} ${a.participantId}`,
     })
   }
 
