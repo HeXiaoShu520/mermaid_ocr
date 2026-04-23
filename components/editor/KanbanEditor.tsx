@@ -303,9 +303,6 @@ export function KanbanEditor({ data, onUpdate }: KanbanEditorProps) {
             </div>
           ))}
 
-          <button onClick={addColumn} className="flex-shrink-0 w-64 h-20 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:border-gray-400 transition-colors">
-            + 添加列
-          </button>
         </div>
 
         {/* 缩放提示 */}
@@ -321,6 +318,9 @@ export function KanbanEditor({ data, onUpdate }: KanbanEditorProps) {
         onMouseDown={e => { dividerDrag.current = { startX: e.clientX, startW: rightW } }}
       />
       <div className="border-l bg-gray-50 overflow-y-auto p-3 flex flex-col gap-3 flex-shrink-0" style={{ width: rightW }}>
+        <button onClick={addColumn} className="w-full py-2 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors">
+          + 添加列
+        </button>
         {selectedInfo ? (
           <>
             <div className="text-xs font-semibold text-gray-600">卡片属性</div>

@@ -837,6 +837,7 @@ function EditorContent() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [codeW, setCodeW] = useState(0);
   const [previewW, setPreviewW] = useState(0);
+  const [visualW, setVisualW] = useState(0);
 
   // Initialize widths
   useEffect(() => {
@@ -845,6 +846,7 @@ function EditorContent() {
     if (codeW === 0) {
       setCodeW(Math.round(total * 0.28));
       setPreviewW(Math.round(total * 0.32));
+      setVisualW(total - Math.round(total * 0.28) - Math.round(total * 0.32) - 8);
     }
   }, []);
 
@@ -853,10 +855,12 @@ function EditorContent() {
       <LeftPanel />
       <div ref={containerRef} style={{ flex: 1, display: "flex", padding: 12, minWidth: 0, overflow: "hidden", gap: 0 }}>
         <CodeEditor widthPx={codeW} />
-        <ResizeDivider onDrag={(dx) => setCodeW(w => Math.max(220, w + dx))} />
+        <ResizeDivider onDrag={(dx) => { setCodeW(w => Math.max(220, w + dx)); setVisualW(w => Math.max(220, w - dx)) }} />
         <MermaidPreview code={code} widthPx={previewW} />
-        <ResizeDivider onDrag={(dx) => setPreviewW(w => Math.max(220, w + dx))} />
-        <VisualEditor />
+        <ResizeDivider onDrag={(dx) => { setPreviewW(w => Math.max(220, w + dx)); setVisualW(w => Math.max(220, w - dx)) }} />
+        <div style={{ width: visualW || undefined, flex: visualW ? undefined : 1, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <VisualEditor />
+        </div>
       </div>
       <RightSidebar supported={supported} diagramType={diagramType} />
     </div>
