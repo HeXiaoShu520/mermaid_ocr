@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import type { BlockData, BlockItem, BlockShape } from '@/lib/blockParser'
 
 interface BlockEditorProps {
@@ -179,6 +179,9 @@ export function BlockEditor({ data, onUpdate }: BlockEditorProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 })
+  const isPanningRef = useRef(false)
+  const panStartRef = useRef({ x: 0, y: 0, offsetX: 0, offsetY: 0 })
 
   const selectedBlock = data.blocks.find(b => b.id === selectedId) ?? null
 
@@ -223,6 +226,28 @@ export function BlockEditor({ data, onUpdate }: BlockEditorProps) {
     onUpdate({ ...data, blocks: newBlocks })
   }, [data, onUpdate])
 
+  // 左键平移
+  const handleCanvasMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button === 0) {
+      isPanningRef.current = true
+      panStartRef.current = { x: e.clientX, y: e.clientY, offsetX: panOffset.x, offsetY: panOffset.y }
+    }
+  }, [panOffset])
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!isPanningRef.current) return
+      setPanOffset({
+        x: panStartRef.current.offsetX + e.clientX - panStartRef.current.x,
+        y: panStartRef.current.offsetY + e.clientY - panStartRef.current.y,
+      })
+    }
+    const onUp = () => { isPanningRef.current = false }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+  }, [])
+
   // 计算网格布局
   const cols = data.columns
   const CELL_W = 120
@@ -259,9 +284,14 @@ export function BlockEditor({ data, onUpdate }: BlockEditorProps) {
     <div className="flex h-full">
       {/* 画布区 */}
       <div
-        className="flex-1 overflow-auto p-4 bg-gray-50"
+        className="flex-1 overflow-hidden p-4 bg-gray-50 relative"
+        style={{ cursor: isPanningRef.current ? 'grabbing' : 'default' }}
+        onMouseDown={handleCanvasMouseDown}
         onClick={() => { setSelectedId(null); setEditingId(null) }}
       >
+        <div
+          style={{ transform: `translate(${panOffset.x}px, ${panOffset.y}px)`, display: 'inline-block' }}
+        >
         <div
           className="relative bg-white rounded-lg border border-gray-200 shadow-sm inline-block"
           style={{ width: canvasW, height: Math.max(canvasH, 120) }}
@@ -278,6 +308,7 @@ export function BlockEditor({ data, onUpdate }: BlockEditorProps) {
                   key={block.id}
                   className="absolute flex items-center justify-center border-2 border-dashed border-gray-200 rounded text-gray-300 text-xs cursor-pointer hover:border-gray-300 transition-colors"
                   style={{ left: pos.x, top: pos.y, width: pos.w, height: pos.h }}
+                  onMouseDown={e => e.stopPropagation()}
                   onClick={(e) => { e.stopPropagation(); setSelectedId(block.id) }}
                 >
                   空白
@@ -290,6 +321,7 @@ export function BlockEditor({ data, onUpdate }: BlockEditorProps) {
                 key={block.id}
                 className="absolute cursor-pointer"
                 style={{ left: pos.x, top: pos.y, width: pos.w, height: pos.h }}
+                onMouseDown={e => e.stopPropagation()}
                 onClick={(e) => { e.stopPropagation(); setSelectedId(block.id) }}
                 onDoubleClick={() => { setEditingId(block.id); setDraft(block.label) }}
               >
@@ -322,17 +354,18 @@ export function BlockEditor({ data, onUpdate }: BlockEditorProps) {
             )
           })}
         </div>
+        </div>
 
         {/* 列数控制 */}
-        <div className="flex items-center gap-2 mt-3 text-xs text-gray-500">
+        <div className="absolute bottom-3 left-3 flex items-center gap-2 text-xs text-gray-500 bg-white/80 px-2 py-1 rounded select-none">
           <span>列数:</span>
           <button
-            onClick={() => onUpdate({ ...data, columns: Math.max(1, data.columns - 1) })}
+            onClick={e => { e.stopPropagation(); onUpdate({ ...data, columns: Math.max(1, data.columns - 1) }) }}
             className="w-6 h-6 rounded border border-gray-300 hover:bg-gray-100 flex items-center justify-center"
           >-</button>
           <span className="font-mono w-4 text-center">{data.columns}</span>
           <button
-            onClick={() => onUpdate({ ...data, columns: Math.min(12, data.columns + 1) })}
+            onClick={e => { e.stopPropagation(); onUpdate({ ...data, columns: Math.min(12, data.columns + 1) }) }}
             className="w-6 h-6 rounded border border-gray-300 hover:bg-gray-100 flex items-center justify-center"
           >+</button>
           <span className="ml-2 text-gray-400">共 {data.blocks.filter(b => !b.isSpace).length} 个块</span>

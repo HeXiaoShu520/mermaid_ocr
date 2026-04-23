@@ -789,7 +789,7 @@ function SequenceDiagramSettingsSection() {
 
 /* ─── Right Sidebar: Object Settings ─── */
 function RightSidebar({ supported, diagramType }: { supported: boolean; diagramType: string }) {
-  // packet、kanban、treeView、block 编辑器自带右侧面板
+  // packet、kanban、treeView、block 编辑器自带右侧面板，不显示独立的右侧栏
   if (!supported || diagramType === 'packet' || diagramType === 'kanban' || diagramType === 'treeView' || diagramType === 'block') return null;
 
   return (

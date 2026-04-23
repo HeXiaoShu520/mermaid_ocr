@@ -78,10 +78,10 @@ export function serializeTreeViewDiagram(data: TreeViewData): string {
 
   function serializeNode(node: TreeNode, indent: number) {
     const prefix = '    '.repeat(indent)
-    // 如果标签包含空格或特殊字符，加引号
-    const needsQuotes = /[\s\[\]{}()]/.test(node.label)
-    const label = needsQuotes ? `"${node.label}"` : node.label
-    lines.push(`${prefix}${label}`)
+    // treeView-beta 只支持带引号的字符串或纯 ASCII 标识符
+    // 统一用 id["label"] 格式：id 用节点 id（纯字母数字），label 加引号
+    const safeId = node.id.replace(/[^\w]/g, '_')
+    lines.push(`${prefix}${safeId}["${node.label}"]`)
     for (const child of node.children) {
       serializeNode(child, indent + 1)
     }

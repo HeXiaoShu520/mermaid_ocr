@@ -53,7 +53,12 @@ export default function MermaidPreview({ code, widthPx }: MermaidPreviewProps) {
     }
 
     // 去掉行内注释（%% shape-name），Mermaid 不支持行内注释
-    const cleanCode = code.replace(/\s*%%\s*\S+\s*$/gm, '')
+    let cleanCode = code.replace(/\s*%%\s*\S+\s*$/gm, '')
+
+    // treeView-beta：把 id[label] 转成 id["label"]，Mermaid 只认带引号的格式
+    if (/^treeView-beta/i.test(cleanCode.trim())) {
+      cleanCode = cleanCode.replace(/(\w+)\[([^\]"]+)\]/g, '$1["$2"]')
+    }
 
     let mounted = true
 
