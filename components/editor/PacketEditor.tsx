@@ -82,8 +82,50 @@ export function PacketEditor({ data, onUpdate }: PacketEditorProps) {
       if (type === 'move') {
         const width = endBit - startBit
         const newStart = Math.max(0, startBit + dBits)
+        const newEnd = newStart + width
         f.startBit = newStart
-        f.endBit = newStart + width
+        f.endBit = newEnd
+
+        // 实时碰撞检测：向右移动时检测后面的字段
+        if (dBits > 0 && idx + 1 < newFields.length) {
+          const next = newFields[idx + 1]
+          if (hasOverlap(f, next)) {
+            if (resizeMode === 'push') {
+              // 顺延：后面所有字段整体平移
+              const delta = (newEnd - next.startBit) + 1
+              for (let i = idx + 1; i < newFields.length; i++) {
+                newFields[i] = { ...newFields[i], startBit: newFields[i].startBit + delta, endBit: newFields[i].endBit + delta }
+              }
+            } else {
+              // 覆盖：调整下一个字段的起点，完全覆盖则删除
+              if (newEnd >= next.endBit) {
+                newFields.splice(idx + 1, 1)
+              } else {
+                newFields[idx + 1] = { ...next, startBit: newEnd + 1 }
+              }
+            }
+          }
+        }
+        // 向左移动时检测前面的字段
+        else if (dBits < 0 && idx - 1 >= 0) {
+          const prev = newFields[idx - 1]
+          if (hasOverlap(f, prev)) {
+            if (resizeMode === 'push') {
+              // 顺延：前面所有字段整体平移
+              const delta = (prev.endBit - newStart) + 1
+              for (let i = idx - 1; i >= 0; i--) {
+                newFields[i] = { ...newFields[i], startBit: newFields[i].startBit - delta, endBit: newFields[i].endBit - delta }
+              }
+            } else {
+              // 覆盖：调整前一个字段的终点，完全覆盖则删除
+              if (newStart <= prev.startBit) {
+                newFields.splice(idx - 1, 1)
+              } else {
+                newFields[idx - 1] = { ...prev, endBit: newStart - 1 }
+              }
+            }
+          }
+        }
       } else if (type === 'right') {
         const newEnd = Math.max(f.startBit, endBit + dBits)
         const oldEnd = f.endBit
@@ -158,6 +200,8 @@ export function PacketEditor({ data, onUpdate }: PacketEditorProps) {
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
   }, [isPanning, panStart])
 
+  const GAP = 2 // 字段间视觉空隙 px
+
   const renderRow = (rowIdx: number) => {
     const rowStart = rowIdx * bitsPerRow
     const rowEnd = rowStart + bitsPerRow - 1
@@ -169,33 +213,38 @@ export function PacketEditor({ data, onUpdate }: PacketEditorProps) {
 
     return (
       <div key={rowIdx} style={{ marginBottom: ROW_GAP }}>
-        <div className="relative flex" style={{ height: ROW_HEIGHT, border: '1px solid #e5e7eb', borderRadius: 4, overflow: 'visible' }}>
+        <div className="relative" style={{ height: ROW_HEIGHT, border: '1px solid #e5e7eb', borderRadius: 4 }}>
           {segments.map(({ field, colStart, colEnd, colorIdx }) => {
             const color = FIELD_COLORS[colorIdx]
             const isSelected = selectedId === field.id
             const isEditing = editingId === field.id
-            const w = (colEnd - colStart + 1) * BIT_WIDTH
-            const isFirstInRow = field.startBit >= rowStart && field.startBit <= rowEnd
-            const isLastInRow = field.endBit >= rowStart && field.endBit <= rowEnd
-            // 实际 bit 位
+            const rawW = (colEnd - colStart + 1) * BIT_WIDTH
+            const isFirstInRow = field.startBit >= rowStart
+            const isLastInRow = field.endBit <= rowEnd
             const displayStart = rowStart + colStart
             const displayEnd = rowStart + colEnd
+            // 空隙：左边（非行首）+1px，右边（非行尾）+1px
+            const gL = colStart > 0 ? GAP : 0
+            const gR = colEnd < bitsPerRow - 1 ? GAP : 0
 
             return (
               <div key={field.id + '-' + rowIdx}
                 className="absolute flex flex-col items-center justify-center text-xs font-semibold select-none"
-                style={{ left: colStart * BIT_WIDTH, top: 0, width: w, height: ROW_HEIGHT, background: isSelected ? '#dbeafe' : color.bg, borderRight: `2px solid ${isSelected ? '#3b82f6' : color.border}`, borderLeft: colStart === 0 ? `2px solid ${isSelected ? '#3b82f6' : color.border}` : 'none', color: isSelected ? '#1d4ed8' : color.text, boxShadow: isSelected ? 'inset 0 0 0 2px #3b82f6' : 'none', zIndex: isSelected ? 2 : 1, cursor: 'grab' }}
+                style={{
+                  left: colStart * BIT_WIDTH + gL,
+                  top: 2, bottom: 2,
+                  width: rawW - gL - gR,
+                  background: isSelected ? '#dbeafe' : color.bg,
+                  border: `1.5px solid ${isSelected ? '#3b82f6' : color.border}`,
+                  borderRadius: 3,
+                  color: isSelected ? '#1d4ed8' : color.text,
+                  zIndex: isSelected ? 2 : 1,
+                  cursor: 'grab',
+                }}
                 onClick={e => { e.stopPropagation(); setSelectedId(field.id) }}
                 onDoubleClick={() => { setEditingId(field.id); setDraft(field.label) }}
                 onMouseDown={e => { if (e.button === 0 && !isEditing) startDrag(e, 'move', field.id) }}
               >
-                {/* 左边界把手 */}
-                {isFirstInRow && !isEditing && (
-                  <div className="absolute left-0 top-0 h-full flex items-center justify-center z-10" style={{ width: 8, cursor: 'ew-resize' }}
-                    onMouseDown={e => startDrag(e, 'left', field.id)}>
-                    <div style={{ width: 3, height: 20, borderRadius: 2, background: isSelected ? '#3b82f6' : color.border }} />
-                  </div>
-                )}
                 {isEditing ? (
                   <input autoFocus className="w-full text-center text-xs bg-transparent outline-none px-1"
                     value={draft} onChange={e => setDraft(e.target.value)}
@@ -206,17 +255,10 @@ export function PacketEditor({ data, onUpdate }: PacketEditorProps) {
                   <span className="truncate px-2 leading-tight">{field.label}</span>
                 )}
                 {/* bit 位标注 */}
-                {!isEditing && w >= 28 && (
-                  <div className="flex justify-between w-full px-1 pointer-events-none" style={{ fontSize: 9, color: 'rgba(0,0,0,0.3)', lineHeight: 1 }}>
-                    {isFirstInRow ? <span>{displayStart}</span> : <span />}
-                    {isLastInRow && displayEnd !== displayStart ? <span>{displayEnd}</span> : (!isFirstInRow ? null : null)}
-                  </div>
-                )}
-                {/* 右边界把手 */}
-                {isLastInRow && !isEditing && (
-                  <div className="absolute right-0 top-0 h-full flex items-center justify-center z-10" style={{ width: 8, cursor: 'ew-resize' }}
-                    onMouseDown={e => startDrag(e, 'right', field.id)}>
-                    <div style={{ width: 3, height: 20, borderRadius: 2, background: isSelected ? '#3b82f6' : color.border }} />
+                {!isEditing && rawW >= 28 && (
+                  <div className="flex justify-between w-full px-1 pointer-events-none" style={{ fontSize: 9, color: 'rgba(0,0,0,0.28)', lineHeight: 1 }}>
+                    <span>{displayStart}</span>
+                    {displayEnd !== displayStart && <span>{displayEnd}</span>}
                   </div>
                 )}
               </div>
