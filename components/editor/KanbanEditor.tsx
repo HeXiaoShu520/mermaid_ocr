@@ -384,10 +384,19 @@ export function KanbanEditor({ data, onUpdate }: KanbanEditorProps) {
             </button>
           </>
         ) : (
-          <div className="text-xs text-gray-400 text-center py-8">
-            点击卡片查看属性<br />双击卡片编辑标签<br /><br />
-            <span className="text-gray-300">拖拽列头排序列<br />拖拽卡片排序/移列</span>
-          </div>
+          <>
+            <div className="text-xs text-gray-400 text-center pt-2 pb-1">点击卡片查看属性</div>
+            <div className="flex flex-col gap-1">
+              {data.columns.map((col, colIdx) => (
+                <div key={col.id} className="rounded-lg p-2 text-xs" style={{ background: COLUMN_COLORS[colIdx % COLUMN_COLORS.length] }}>
+                  <div className="font-semibold text-gray-700 flex items-center justify-between">
+                    <span>{col.label}</span>
+                    <span className="text-gray-400 font-normal">{col.items.length}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
     </div>
