@@ -488,6 +488,17 @@ export default function VisualEditor() {
     )
   }
 
+  // 不支持的图表类型
+  if (diagramType === null && mermaidCode.trim()) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-3">
+        <div style={{ fontSize: 56, lineHeight: 1 }}>🚧</div>
+        <div style={{ fontSize: 14, fontWeight: 500, color: '#6b7280' }}>暂时还不支持这个类型呢</div>
+        <div style={{ fontSize: 12, color: '#9ca3af' }}>可以在左侧预览区查看渲染效果</div>
+      </div>
+    )
+  }
+
   // 流程图编辑器
   const hasNodes = nodes.length > 0
 
