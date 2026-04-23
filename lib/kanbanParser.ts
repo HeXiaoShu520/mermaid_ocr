@@ -28,9 +28,21 @@ export interface KanbanData {
 let _kanbanColCounter = 0
 let _kanbanItemCounter = 0
 
+/** 将 label 转为合法的 mermaid id（字母数字下划线，中文转拼音首字母或直接保留） */
+function labelToId(label: string, usedIds: Set<string>): string {
+  // 保留字母数字下划线，其余替换为下划线
+  let base = label.replace(/[^\w]/g, '_').replace(/^(\d)/, '_$1').slice(0, 20) || 'col'
+  let id = base
+  let n = 2
+  while (usedIds.has(id)) { id = `${base}_${n++}` }
+  usedIds.add(id)
+  return id
+}
+
 export function parseKanbanDiagram(code: string): KanbanData {
   const columns: KanbanColumn[] = []
   const lines = code.split('\n')
+  const usedColIds = new Set<string>()
 
   let currentColumn: KanbanColumn | null = null
   let colIndent = -1 // 第一个列的缩进
@@ -52,7 +64,9 @@ export function parseKanbanDiagram(code: string): KanbanData {
       // id[label]
       const idBracket = trimmed.match(/^(\w+)\[([^\]]+)\]$/)
       if (idBracket) {
-        currentColumn = { id: idBracket[1], label: idBracket[2], items: [] }
+        const id = idBracket[1]
+        usedColIds.add(id)
+        currentColumn = { id, label: idBracket[2], items: [] }
         columns.push(currentColumn)
         colIndent = indent
         continue
@@ -60,13 +74,16 @@ export function parseKanbanDiagram(code: string): KanbanData {
       // [label]
       const bracket = trimmed.match(/^\[([^\]]+)\]$/)
       if (bracket) {
-        currentColumn = { id: `col-${++_kanbanColCounter}`, label: bracket[1], items: [] }
+        const label = bracket[1]
+        const id = labelToId(label, usedColIds)
+        currentColumn = { id, label, items: [] }
         columns.push(currentColumn)
         colIndent = indent
         continue
       }
       // 纯文本
-      currentColumn = { id: `col-${++_kanbanColCounter}`, label: trimmed, items: [] }
+      const id = labelToId(trimmed, usedColIds)
+      currentColumn = { id, label: trimmed, items: [] }
       columns.push(currentColumn)
       colIndent = indent
       continue
@@ -126,19 +143,13 @@ export function serializeKanbanDiagram(data: KanbanData): string {
   const lines = ['kanban']
 
   for (const col of data.columns) {
-    if (col.id.startsWith('col-')) {
-      if (/[^\w\u4e00-\u9fff]/.test(col.label)) {
-        lines.push(`  [${col.label}]`)
-      } else {
-        lines.push(`  ${col.label}`)
-      }
-    } else {
-      lines.push(`  ${col.id}[${col.label}]`)
-    }
+    // 列始终用 id[label] 格式，确保唯一性
+    lines.push(`  ${col.id}[${col.label}]`)
 
     for (const item of col.items) {
       let line = ''
       if (item.id.startsWith('item-')) {
+        // 自动生成的 id，用 [label] 格式
         line = `    [${item.label}]`
       } else {
         line = `    ${item.id}[${item.label}]`
