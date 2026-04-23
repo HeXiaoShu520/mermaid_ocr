@@ -4,7 +4,8 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import type { PacketData, PacketField } from '@/lib/packetParser'
 
 const BIT_WIDTH = 24
-const ROW_HEIGHT = 44
+const ROW_HEIGHT = 48
+const ROW_GAP = 8  // 行间距
 const HEADER_HEIGHT = 24
 
 const FIELD_COLORS = [
@@ -28,14 +29,19 @@ export function PacketEditor({ data, onUpdate }: PacketEditorProps) {
   const [draft, setDraft] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [resizeMode, setResizeMode] = useState<'cover' | 'push'>('push')
+  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 })
+  const [isPanning, setIsPanning] = useState(false)
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 })
+  const [canvasWidth, setCanvasWidth] = useState(800)
 
   const bitsPerRow = data.bitsPerRow || 32
+  const containerRef = useRef<HTMLDivElement>(null)
 
   const dragRef = useRef<{
     type: 'left' | 'right' | 'move'
     fieldId: string
     startX: number
-    startBit: number  // left: startBit, right: endBit, move: startBit
+    startBit: number
     endBit: number
     fields: PacketField[]
   } | null>(null)
@@ -54,6 +60,9 @@ export function PacketEditor({ data, onUpdate }: PacketEditorProps) {
     onUpdate({ ...data, fields: [...data.fields, { id: `field-${Date.now()}`, startBit: lastEnd + 1, endBit: lastEnd + 8, label: '新字段' }] })
   }, [data, onUpdate])
 
+  // 判断两个字段是否有交集
+  const hasOverlap = (a: PacketField, b: PacketField) => a.startBit <= b.endBit && a.endBit >= b.startBit
+
   const startDrag = useCallback((e: React.MouseEvent, type: 'left' | 'right' | 'move', fieldId: string) => {
     e.stopPropagation()
     e.preventDefault()
@@ -62,7 +71,7 @@ export function PacketEditor({ data, onUpdate }: PacketEditorProps) {
 
     const onMove = (ev: MouseEvent) => {
       if (!dragRef.current) return
-      const dx = ev.clientX - dragRef.current.startX
+      const dx = (ev.clientX - dragRef.current.startX) / transform.scale
       const dBits = Math.round(dx / BIT_WIDTH)
       const { type, fieldId, startBit, endBit, fields } = dragRef.current
       let newFields = fields.map(f => ({ ...f }))
@@ -79,29 +88,39 @@ export function PacketEditor({ data, onUpdate }: PacketEditorProps) {
         const newEnd = Math.max(f.startBit, endBit + dBits)
         const oldEnd = f.endBit
         f.endBit = newEnd
-        if (resizeMode === 'push') {
-          const delta = newEnd - oldEnd
-          for (let i = idx + 1; i < newFields.length; i++) {
-            newFields[i] = { ...newFields[i], startBit: newFields[i].startBit + delta, endBit: newFields[i].endBit + delta }
-          }
-        } else if (idx + 1 < newFields.length) {
+        // 只有与相邻字段有交集时才触发顺延/覆盖
+        if (idx + 1 < newFields.length) {
           const next = newFields[idx + 1]
-          if (newEnd >= next.endBit) newFields.splice(idx + 1, 1)
-          else newFields[idx + 1] = { ...next, startBit: newEnd + 1 }
+          if (hasOverlap(f, next)) {
+            if (resizeMode === 'push') {
+              const delta = newEnd - oldEnd
+              for (let i = idx + 1; i < newFields.length; i++) {
+                newFields[i] = { ...newFields[i], startBit: newFields[i].startBit + delta, endBit: newFields[i].endBit + delta }
+              }
+            } else {
+              if (newEnd >= next.endBit) newFields.splice(idx + 1, 1)
+              else newFields[idx + 1] = { ...next, startBit: newEnd + 1 }
+            }
+          }
         }
       } else { // left
         const newStart = Math.min(f.endBit, Math.max(0, startBit + dBits))
         const oldStart = f.startBit
         f.startBit = newStart
-        if (resizeMode === 'push') {
-          const delta = newStart - oldStart
-          for (let i = idx - 1; i >= 0; i--) {
-            newFields[i] = { ...newFields[i], startBit: newFields[i].startBit + delta, endBit: newFields[i].endBit + delta }
-          }
-        } else if (idx - 1 >= 0) {
+        // 只有与相邻字段有交集时才触发顺延/覆盖
+        if (idx - 1 >= 0) {
           const prev = newFields[idx - 1]
-          if (newStart <= prev.startBit) newFields.splice(idx - 1, 1)
-          else newFields[idx - 1] = { ...prev, endBit: newStart - 1 }
+          if (hasOverlap(f, prev)) {
+            if (resizeMode === 'push') {
+              const delta = newStart - oldStart
+              for (let i = idx - 1; i >= 0; i--) {
+                newFields[i] = { ...newFields[i], startBit: newFields[i].startBit + delta, endBit: newFields[i].endBit + delta }
+              }
+            } else {
+              if (newStart <= prev.startBit) newFields.splice(idx - 1, 1)
+              else newFields[idx - 1] = { ...prev, endBit: newStart - 1 }
+            }
+          }
         }
       }
       onUpdate({ ...data, fields: newFields })
@@ -110,7 +129,34 @@ export function PacketEditor({ data, onUpdate }: PacketEditorProps) {
     const onUp = () => { dragRef.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
-  }, [data, resizeMode, onUpdate])
+  }, [data, resizeMode, transform.scale, onUpdate])
+
+  // 画布缩放
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault()
+    const delta = e.deltaY > 0 ? 0.9 : 1.1
+    setTransform(t => ({ ...t, scale: Math.max(0.3, Math.min(3, t.scale * delta)) }))
+  }, [])
+
+  // 中键平移
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button === 1) {
+      e.preventDefault()
+      setIsPanning(true)
+      setPanStart({ x: e.clientX - transform.x, y: e.clientY - transform.y })
+    }
+  }, [transform])
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!isPanning) return
+      setTransform(t => ({ ...t, x: e.clientX - panStart.x, y: e.clientY - panStart.y }))
+    }
+    const onUp = (e: MouseEvent) => { if (e.button === 1) setIsPanning(false) }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+  }, [isPanning, panStart])
 
   const renderRow = (rowIdx: number) => {
     const rowStart = rowIdx * bitsPerRow
@@ -122,49 +168,61 @@ export function PacketEditor({ data, onUpdate }: PacketEditorProps) {
     })
 
     return (
-      <div key={rowIdx} className="relative flex" style={{ height: ROW_HEIGHT, borderBottom: '1px solid #e5e7eb' }}>
-        {segments.map(({ field, colStart, colEnd, colorIdx }) => {
-          const color = FIELD_COLORS[colorIdx]
-          const isSelected = selectedId === field.id
-          const isEditing = editingId === field.id
-          const w = (colEnd - colStart + 1) * BIT_WIDTH
-          const isFirstInRow = field.startBit >= rowStart && field.startBit <= rowEnd
-          const isLastInRow = field.endBit >= rowStart && field.endBit <= rowEnd
+      <div key={rowIdx} style={{ marginBottom: ROW_GAP }}>
+        <div className="relative flex" style={{ height: ROW_HEIGHT, border: '1px solid #e5e7eb', borderRadius: 4, overflow: 'visible' }}>
+          {segments.map(({ field, colStart, colEnd, colorIdx }) => {
+            const color = FIELD_COLORS[colorIdx]
+            const isSelected = selectedId === field.id
+            const isEditing = editingId === field.id
+            const w = (colEnd - colStart + 1) * BIT_WIDTH
+            const isFirstInRow = field.startBit >= rowStart && field.startBit <= rowEnd
+            const isLastInRow = field.endBit >= rowStart && field.endBit <= rowEnd
+            // 实际 bit 位
+            const displayStart = rowStart + colStart
+            const displayEnd = rowStart + colEnd
 
-          return (
-            <div key={field.id + '-' + rowIdx}
-              className="absolute flex items-center justify-center text-xs font-semibold select-none"
-              style={{ left: colStart * BIT_WIDTH, top: 0, width: w, height: ROW_HEIGHT, background: isSelected ? '#dbeafe' : color.bg, borderRight: `2px solid ${isSelected ? '#3b82f6' : color.border}`, borderLeft: colStart === 0 ? `2px solid ${isSelected ? '#3b82f6' : color.border}` : 'none', color: isSelected ? '#1d4ed8' : color.text, boxShadow: isSelected ? 'inset 0 0 0 2px #3b82f6' : 'none', zIndex: isSelected ? 2 : 1, cursor: 'grab' }}
-              onClick={e => { e.stopPropagation(); setSelectedId(field.id) }}
-              onDoubleClick={() => { setEditingId(field.id); setDraft(field.label) }}
-              onMouseDown={e => { if (e.button === 0 && !isEditing) startDrag(e, 'move', field.id) }}
-            >
-              {/* 左边界把手 */}
-              {isFirstInRow && !isEditing && (
-                <div className="absolute left-0 top-0 h-full flex items-center justify-center z-10" style={{ width: 8, cursor: 'ew-resize' }}
-                  onMouseDown={e => startDrag(e, 'left', field.id)}>
-                  <div style={{ width: 3, height: 20, borderRadius: 2, background: isSelected ? '#3b82f6' : color.border }} />
-                </div>
-              )}
-              {isEditing ? (
-                <input autoFocus className="w-full h-full text-center text-xs bg-transparent outline-none px-1"
-                  value={draft} onChange={e => setDraft(e.target.value)}
-                  onBlur={commitEdit}
-                  onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditingId(null); e.stopPropagation() }}
-                  onClick={e => e.stopPropagation()} />
-              ) : (
-                <span className="truncate px-2">{field.label}</span>
-              )}
-              {/* 右边界把手 */}
-              {isLastInRow && !isEditing && (
-                <div className="absolute right-0 top-0 h-full flex items-center justify-center z-10" style={{ width: 8, cursor: 'ew-resize' }}
-                  onMouseDown={e => startDrag(e, 'right', field.id)}>
-                  <div style={{ width: 3, height: 20, borderRadius: 2, background: isSelected ? '#3b82f6' : color.border }} />
-                </div>
-              )}
-            </div>
-          )
-        })}
+            return (
+              <div key={field.id + '-' + rowIdx}
+                className="absolute flex flex-col items-center justify-center text-xs font-semibold select-none"
+                style={{ left: colStart * BIT_WIDTH, top: 0, width: w, height: ROW_HEIGHT, background: isSelected ? '#dbeafe' : color.bg, borderRight: `2px solid ${isSelected ? '#3b82f6' : color.border}`, borderLeft: colStart === 0 ? `2px solid ${isSelected ? '#3b82f6' : color.border}` : 'none', color: isSelected ? '#1d4ed8' : color.text, boxShadow: isSelected ? 'inset 0 0 0 2px #3b82f6' : 'none', zIndex: isSelected ? 2 : 1, cursor: 'grab' }}
+                onClick={e => { e.stopPropagation(); setSelectedId(field.id) }}
+                onDoubleClick={() => { setEditingId(field.id); setDraft(field.label) }}
+                onMouseDown={e => { if (e.button === 0 && !isEditing) startDrag(e, 'move', field.id) }}
+              >
+                {/* 左边界把手 */}
+                {isFirstInRow && !isEditing && (
+                  <div className="absolute left-0 top-0 h-full flex items-center justify-center z-10" style={{ width: 8, cursor: 'ew-resize' }}
+                    onMouseDown={e => startDrag(e, 'left', field.id)}>
+                    <div style={{ width: 3, height: 20, borderRadius: 2, background: isSelected ? '#3b82f6' : color.border }} />
+                  </div>
+                )}
+                {isEditing ? (
+                  <input autoFocus className="w-full text-center text-xs bg-transparent outline-none px-1"
+                    value={draft} onChange={e => setDraft(e.target.value)}
+                    onBlur={commitEdit}
+                    onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditingId(null); e.stopPropagation() }}
+                    onClick={e => e.stopPropagation()} />
+                ) : (
+                  <span className="truncate px-2 leading-tight">{field.label}</span>
+                )}
+                {/* bit 位标注 */}
+                {!isEditing && w >= 28 && (
+                  <div className="flex justify-between w-full px-1 pointer-events-none" style={{ fontSize: 9, color: 'rgba(0,0,0,0.3)', lineHeight: 1 }}>
+                    {isFirstInRow ? <span>{displayStart}</span> : <span />}
+                    {isLastInRow && displayEnd !== displayStart ? <span>{displayEnd}</span> : (!isFirstInRow ? null : null)}
+                  </div>
+                )}
+                {/* 右边界把手 */}
+                {isLastInRow && !isEditing && (
+                  <div className="absolute right-0 top-0 h-full flex items-center justify-center z-10" style={{ width: 8, cursor: 'ew-resize' }}
+                    onMouseDown={e => startDrag(e, 'right', field.id)}>
+                    <div style={{ width: 3, height: 20, borderRadius: 2, background: isSelected ? '#3b82f6' : color.border }} />
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
       </div>
     )
   }
@@ -187,26 +245,50 @@ export function PacketEditor({ data, onUpdate }: PacketEditorProps) {
 
   return (
     <div className="flex h-full">
-      <div className="flex-1 overflow-auto p-6 bg-gray-50" onClick={() => setSelectedId(null)}>
-        <div className="inline-block bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="flex border-b border-gray-200 bg-gray-50">
-            {Array.from({ length: bitsPerRow }).map((_, i) => (
-              <div key={i} className="flex items-center justify-center font-mono text-gray-400 border-r border-gray-100 last:border-r-0"
-                style={{ width: BIT_WIDTH, height: HEADER_HEIGHT, fontSize: 10 }}>{i}</div>
-            ))}
-          </div>
-          <div style={{ width: bitsPerRow * BIT_WIDTH }}>
-            {Array.from({ length: totalRows }).map((_, i) => renderRow(i))}
-          </div>
+      {/* 画布区 */}
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-hidden bg-gray-50 relative"
+        style={{ cursor: isPanning ? 'grabbing' : 'default' }}
+        onClick={() => setSelectedId(null)}
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+      >
+        {/* 缩放控制条 */}
+        <div className="absolute top-3 right-3 z-10 flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-2 py-1 shadow-sm">
+          <button onClick={() => setTransform(t => ({ ...t, scale: Math.max(0.3, t.scale - 0.1) }))} className="text-gray-500 hover:text-gray-800 text-sm w-5 h-5 flex items-center justify-center">−</button>
+          <span className="text-xs text-gray-500 w-10 text-center">{Math.round(transform.scale * 100)}%</span>
+          <button onClick={() => setTransform(t => ({ ...t, scale: Math.min(3, t.scale + 0.1) }))} className="text-gray-500 hover:text-gray-800 text-sm w-5 h-5 flex items-center justify-center">+</button>
+          <div className="w-px h-4 bg-gray-200" />
+          <button onClick={() => setTransform({ x: 0, y: 0, scale: 1 })} className="text-xs text-gray-400 hover:text-gray-600">重置</button>
         </div>
-        <div className="mt-3 text-xs text-gray-400">共 {totalBits} 位 · {data.fields.length} 个字段</div>
+
+        <div style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`, transformOrigin: '0 0', padding: 24, display: 'inline-block' }}>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-visible" style={{ width: bitsPerRow * BIT_WIDTH }}>
+            {/* 列头 */}
+            <div className="flex border-b border-gray-200 bg-gray-50 rounded-t-xl">
+              {Array.from({ length: bitsPerRow }).map((_, i) => (
+                <div key={i} className="flex items-center justify-center font-mono text-gray-400 border-r border-gray-100 last:border-r-0"
+                  style={{ width: BIT_WIDTH, height: HEADER_HEIGHT, fontSize: 10 }}>{i}</div>
+              ))}
+            </div>
+            {/* 数据行 */}
+            <div style={{ padding: '8px 0' }}>
+              {Array.from({ length: totalRows }).map((_, i) => renderRow(i))}
+            </div>
+          </div>
+          <div className="mt-3 text-xs text-gray-400">共 {totalBits} 位 · {data.fields.length} 个字段 · 滚轮缩放 · 中键平移</div>
+        </div>
       </div>
 
+      {/* 分隔条 */}
       <div
         style={{ width: 4, cursor: 'col-resize', background: 'transparent', flexShrink: 0 }}
         className="hover:bg-blue-300 transition-colors"
         onMouseDown={e => { dividerDrag.current = { startX: e.clientX, startW: rightW } }}
       />
+
+      {/* 右侧面板 */}
       <div className="border-l bg-gray-50 overflow-y-auto p-3 flex flex-col gap-3" style={{ width: rightW, flexShrink: 0 }}>
         <div className="flex items-center justify-between">
           <span className="text-xs font-semibold text-gray-600">字段列表</span>
