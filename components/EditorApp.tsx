@@ -926,7 +926,7 @@ function KanbanEditorPanel() {
     return null
   })()
 
-  const commit = (newData: typeof data) => { updateData(newData); setMermaid(serializeKanbanDiagram(newData)) }
+  const commit = (newData: typeof data) => { updateData(newData) }
 
   const addColumn = () => commit({ columns: [...data.columns, { id: `col-${++_kanbanPanelColCounter}`, label: '新列', items: [] }] })
   const removeColumn = (colId: string) => commit({ columns: data.columns.filter(c => c.id !== colId) })
@@ -950,9 +950,8 @@ function KanbanEditorPanel() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+        <div style={{ marginBottom: 4 }}>
           <span style={{ fontSize: 10, color: "#9CA3AF" }}>列（共 {data.columns.length} 列）</span>
-          <FlatButton onClick={addColumn} style={{ fontSize: 9, padding: "2px 6px" }}>+ 添加列</FlatButton>
         </div>
         {data.columns.map(col => (
           <div key={col.id} style={{ marginBottom: 4 }}>
@@ -978,6 +977,10 @@ function KanbanEditorPanel() {
           </div>
         ))}
       </div>
+      <button
+        onClick={addColumn}
+        style={{ width: "100%", padding: "6px 0", fontSize: 12, background: "#f0f9ff", border: "1px dashed #93c5fd", borderRadius: 6, color: "#2563eb", cursor: "pointer" }}
+      >+ 添加列</button>
       {selectedInfo && (
         <div style={{ background: "#f9fafb", borderRadius: 6, padding: 8, border: "1px solid #e5e7eb", display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ fontSize: 10, color: "#9CA3AF" }}>选中卡片 · {selectedInfo.col.label}</div>
@@ -1087,7 +1090,7 @@ function BlockEditorPanel() {
 
 /* ─── Right Sidebar: Object Settings ─── */
 function RightSidebar({ supported, diagramType }: { supported: boolean; diagramType: string }) {
-  if (!supported || diagramType === 'treeView') return null;
+  if (!supported || diagramType === 'treeView' || diagramType === 'mindmap') return null;
 
   return (
     <div style={{

@@ -58,7 +58,17 @@ function addChildTo(node: MindmapNode, parentId: string, newChild: MindmapNode):
   return { ...node, children: node.children.map(c => addChildTo(c, parentId, newChild)) }
 }
 
-// ─── Tree Node Component ───────────────────────────────────────────────────────
+function addSiblingTo(root: MindmapNode, targetId: string, newNode: MindmapNode): MindmapNode {
+  const newChildren = [...root.children]
+  const idx = newChildren.findIndex(c => c.id === targetId)
+  if (idx >= 0) {
+    newChildren.splice(idx + 1, 0, newNode)
+    return { ...root, children: newChildren }
+  }
+  return { ...root, children: root.children.map(c => addSiblingTo(c, targetId, newNode)) }
+}
+
+
 
 interface TreeNodeProps {
   node: MindmapNode
@@ -351,6 +361,25 @@ export function MindmapEditor({ data, onUpdate }: MindmapEditorProps) {
     if (selectedId === id) setSelectedId(null)
   }, [root, updateRoot, selectedId])
 
+  const handleAddSibling = useCallback((id: string) => {
+    if (!root) return
+    const findDepth = (n: MindmapNode): number => {
+      if (n.id === id) return n.depth
+      for (const c of n.children) { const d = findDepth(c); if (d >= 0) return d }
+      return -1
+    }
+    const newNode: MindmapNode = {
+      id: `mm-${++_mmCounter}`,
+      label: '新节点',
+      shape: 'default',
+      children: [],
+      depth: findDepth(root),
+    }
+    const newRoot = addSiblingTo(root, id, newNode)
+    updateRoot(newRoot)
+    setSelectedId(newNode.id)
+  }, [root, updateRoot])
+
   const handleAddRoot = useCallback(() => {
     const newRoot: MindmapNode = {
       id: `mm-${++_mmCounter}`,
@@ -439,6 +468,12 @@ export function MindmapEditor({ data, onUpdate }: MindmapEditorProps) {
               onClick={() => handleAddChild(selectedNode.id)}
               className="text-xs px-2 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded hover:bg-indigo-100"
             >+ 添加子节点</button>
+            {selectedNode.id !== root?.id && (
+              <button
+                onClick={() => handleAddSibling(selectedNode.id)}
+                className="text-xs px-2 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 rounded hover:bg-blue-100"
+              >+ 添加兄弟节点</button>
+            )}
             {selectedNode.id !== root?.id && (
               <button
                 onClick={() => handleDelete(selectedNode.id)}

@@ -23,12 +23,21 @@ let _itemCounter = 100
 export function KanbanEditor({ data, onUpdate }: KanbanEditorProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
-  const { selectedItemId, setSelectedItemId, updateData } = useKanbanEditorStore()
+  const { selectedItemId, setSelectedItemId, updateData, data: storeData } = useKanbanEditorStore()
 
   const handleUpdate = useCallback((newData: KanbanData) => {
     onUpdate(newData)
     updateData(newData)
   }, [onUpdate, updateData])
+
+  // 右侧面板通过 store 更新时，同步到画布（不写代码区）
+  const prevStoreDataRef = useRef(storeData)
+  useEffect(() => {
+    if (storeData && storeData !== prevStoreDataRef.current && storeData !== data) {
+      onUpdate(storeData)
+    }
+    prevStoreDataRef.current = storeData
+  }, [storeData])
 
   // 画布平移/缩放
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 })
@@ -57,7 +66,7 @@ export function KanbanEditor({ data, onUpdate }: KanbanEditorProps) {
 
   // 中键/空格拖拽平移
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.button === 1) {
+    if (e.button === 1 || e.button === 0) {
       e.preventDefault()
       isPanning.current = true
       panStart.current = { x: e.clientX, y: e.clientY, tx: transform.x, ty: transform.y }
@@ -262,6 +271,7 @@ export function KanbanEditor({ data, onUpdate }: KanbanEditorProps) {
                     className={`bg-white rounded-lg shadow-sm border p-2.5 cursor-grab active:cursor-grabbing transition-all hover:shadow-md ${
                       selectedItemId === item.id ? 'ring-2 ring-blue-400 border-blue-300' : dragOverItemId === item.id ? 'border-blue-300 border-dashed' : 'border-gray-200'
                     }`}
+                    onMouseDown={e => e.stopPropagation()}
                     onClick={e => { e.stopPropagation(); setSelectedItemId(item.id) }}
                     onDoubleClick={() => { setEditingId(item.id); setDraft(item.label) }}
                   >

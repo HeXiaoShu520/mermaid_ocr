@@ -133,21 +133,21 @@ export default function VisualEditor() {
     const currentDt = getDiagramType(useStore.getState().mermaid)
     let code = ''
 
-    if (currentDt === 'pie' && pieDraft) {
+    if (pieDraft) {
       code = serializePieChart(pieDraft.title, pieDraft.data)
-    } else if (currentDt === 'xychart' && xyDraft) {
+    } else if (xyDraft) {
       code = serializeXyChart(xyDraft)
-    } else if (currentDt === 'packet' && packetDraft) {
+    } else if (packetDraft) {
       code = serializePacketDiagram(packetDraft)
-    } else if (currentDt === 'kanban' && kanbanDraft) {
+    } else if (kanbanDraft) {
       code = serializeKanbanDiagram(kanbanDraft)
-    } else if (currentDt === 'mindmap' && mindmapDraft) {
+    } else if (mindmapDraft) {
       code = serializeMindmap(mindmapDraft)
-    } else if (currentDt === 'timeline' && timelineDraft) {
+    } else if (timelineDraft) {
       code = serializeTimelineDiagram(timelineDraft)
-    } else if (currentDt === 'treeView' && treeViewDraft) {
+    } else if (treeViewDraft) {
       code = serializeTreeViewDiagram(treeViewDraft)
-    } else if (currentDt === 'block' && blockDraft) {
+    } else if (blockDraft) {
       code = serializeBlockDiagram(blockDraft)
     } else if (currentDt === 'sequenceDiagram') {
       const { participants, messages, fragments, activations } = useSeqEditorStore.getState()

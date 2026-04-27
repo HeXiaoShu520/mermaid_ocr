@@ -25,7 +25,7 @@ function mapTree(nodes: TreeNode[], fn: (node: TreeNode, parent: TreeNode | null
   for (const node of nodes) {
     const mapped = fn(node, parent)
     if (mapped === null) continue // null = 删除
-    result.push({ ...mapped, children: mapTree(node.children, fn, node) })
+    result.push({ ...mapped, children: mapTree(mapped.children, fn, node) })
   }
   return result
 }
@@ -126,6 +126,10 @@ function outdentNodeInChildren(nodes: TreeNode[], targetId: string, parentId: st
   return result
 }
 
+const DEPTH_COLORS = [
+  '#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16',
+]
+
 // ─── 单个树节点渲染 ────────────────────────────────────────────────────────────
 interface TreeNodeItemProps {
   node: TreeNode
@@ -157,30 +161,37 @@ function TreeNodeItem({
   const isEditing = editingId === node.id
   const hasChildren = node.children.length > 0
   const [collapsed, setCollapsed] = useState(false)
+  const color = DEPTH_COLORS[depth % DEPTH_COLORS.length]
 
   return (
-    <div>
+    <div style={{ marginLeft: depth === 0 ? 0 : 20 }}>
       <div
-        className={`flex items-center gap-1 py-1 px-2 rounded cursor-pointer group transition-colors ${
-          isSelected ? 'bg-blue-100 border border-blue-300' : 'hover:bg-gray-100'
+        className={`flex items-center gap-1 rounded px-2 py-1 cursor-pointer group transition-colors ${
+          isSelected ? 'ring-2 ring-blue-400 bg-blue-50' : 'hover:bg-gray-100'
         }`}
-        style={{ paddingLeft: depth * 20 + 8 }}
         onClick={(e) => { e.stopPropagation(); onSelect(node.id) }}
         onDoubleClick={() => onStartEdit(node.id, node.label)}
       >
         {/* 折叠按钮 */}
-        <span
-          className="w-4 h-4 flex items-center justify-center text-gray-400 text-xs flex-shrink-0"
-          onClick={(e) => { e.stopPropagation(); if (hasChildren) setCollapsed(!collapsed) }}
-        >
-          {hasChildren ? (collapsed ? '▶' : '▼') : '·'}
-        </span>
+        {hasChildren ? (
+          <button
+            className="text-gray-400 hover:text-gray-600 w-4 text-xs flex-shrink-0"
+            onClick={(e) => { e.stopPropagation(); setCollapsed(!collapsed) }}
+          >
+            {collapsed ? '▶' : '▼'}
+          </button>
+        ) : (
+          <span className="w-4 flex-shrink-0" />
+        )}
+
+        {/* 颜色条 */}
+        <div className="w-2 h-4 rounded-sm flex-shrink-0" style={{ background: color }} />
 
         {/* 标签 */}
         {isEditing ? (
           <input
             autoFocus
-            className="flex-1 text-sm bg-transparent outline-none border-b border-blue-400 min-w-0"
+            className="flex-1 text-sm bg-white border border-blue-300 rounded px-1 outline-none"
             value={draft}
             onChange={e => onDraftChange(e.target.value)}
             onBlur={onCommitEdit}
@@ -193,21 +204,21 @@ function TreeNodeItem({
             onClick={e => e.stopPropagation()}
           />
         ) : (
-          <span className="flex-1 text-sm text-gray-700 select-none truncate">{node.label}</span>
+          <span className="flex-1 text-sm truncate text-gray-700" title={node.label}>{node.label}</span>
         )}
 
         {/* 操作按钮（hover 显示） */}
         {!isEditing && (
-          <div className="hidden group-hover:flex items-center gap-0.5 ml-1">
+          <div className="hidden group-hover:flex items-center gap-1 flex-shrink-0">
             <button
-              onClick={(e) => { e.stopPropagation(); onAddChild(node.id) }}
-              className="w-5 h-5 text-xs text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded"
+              className="text-[10px] text-blue-500 hover:text-blue-700 px-1"
               title="添加子节点"
+              onClick={(e) => { e.stopPropagation(); onAddChild(node.id) }}
             >+</button>
             <button
-              onClick={(e) => { e.stopPropagation(); onDelete(node.id) }}
-              className="w-5 h-5 text-xs text-gray-400 hover:text-red-500 hover:bg-red-50 rounded"
+              className="text-[10px] text-red-400 hover:text-red-600 px-1"
               title="删除"
+              onClick={(e) => { e.stopPropagation(); onDelete(node.id) }}
             >×</button>
           </div>
         )}
@@ -215,7 +226,7 @@ function TreeNodeItem({
 
       {/* 子节点 */}
       {!collapsed && hasChildren && (
-        <div>
+        <div className="border-l border-gray-200 ml-3">
           {node.children.map((child, idx) => (
             <TreeNodeItem
               key={child.id}
@@ -353,7 +364,7 @@ export function TreeViewEditor({ data, onUpdate }: TreeViewEditorProps) {
       </div>
 
       {/* 右侧属性面板 */}
-      <div className="w-56 border-l bg-gray-50 overflow-y-auto p-3 flex flex-col gap-3">
+      <div className="w-56 border-l bg-gray-50 overflow-y-auto p-3 flex flex-col gap-3" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <span className="text-xs font-semibold text-gray-600">树形图</span>
           <button
