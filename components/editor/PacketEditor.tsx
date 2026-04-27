@@ -97,13 +97,11 @@ export function PacketEditor({ data, onUpdate }: PacketEditorProps) {
           const next = newFields[idx + 1]
           if (hasOverlap(f, next)) {
             if (resizeMode === 'push') {
-              // 顺延：后面所有字段整体平移
-              const delta = (newEnd - next.startBit) + 1
+              const delta = newEnd - next.startBit + 1  // 实际重叠量
               for (let i = idx + 1; i < newFields.length; i++) {
                 newFields[i] = { ...newFields[i], startBit: newFields[i].startBit + delta, endBit: newFields[i].endBit + delta }
               }
             } else {
-              // 覆盖：调整下一个字段的起点，完全覆盖则删除
               if (newEnd >= next.endBit) {
                 newFields.splice(idx + 1, 1)
               } else {
@@ -117,13 +115,11 @@ export function PacketEditor({ data, onUpdate }: PacketEditorProps) {
           const prev = newFields[idx - 1]
           if (hasOverlap(f, prev)) {
             if (resizeMode === 'push') {
-              // 顺延：前面所有字段整体平移
-              const delta = (prev.endBit - newStart) + 1
+              const delta = prev.endBit - newStart + 1  // 实际重叠量
               for (let i = idx - 1; i >= 0; i--) {
                 newFields[i] = { ...newFields[i], startBit: newFields[i].startBit - delta, endBit: newFields[i].endBit - delta }
               }
             } else {
-              // 覆盖：调整前一个字段的终点，完全覆盖则删除
               if (newStart <= prev.startBit) {
                 newFields.splice(idx - 1, 1)
               } else {
@@ -252,6 +248,22 @@ export function PacketEditor({ data, onUpdate }: PacketEditorProps) {
                 onDoubleClick={() => { setEditingId(field.id); setDraft(field.label) }}
                 onMouseDown={e => { if (e.button === 0 && !isEditing) startDrag(e, 'move', field.id) }}
               >
+                {/* 左侧 resize 控制条 */}
+                {isFirstInRow && isSelected && (
+                  <div
+                    className="absolute left-0 top-0 bottom-0 flex items-center justify-center"
+                    style={{ width: 8, cursor: 'ew-resize', zIndex: 3, background: '#3b82f6', borderRadius: '3px 0 0 3px', opacity: 0.7 }}
+                    onMouseDown={e => { e.stopPropagation(); startDrag(e, 'left', field.id) }}
+                  />
+                )}
+                {/* 右侧 resize 控制条 */}
+                {isLastInRow && isSelected && (
+                  <div
+                    className="absolute right-0 top-0 bottom-0 flex items-center justify-center"
+                    style={{ width: 8, cursor: 'ew-resize', zIndex: 3, background: '#3b82f6', borderRadius: '0 3px 3px 0', opacity: 0.7 }}
+                    onMouseDown={e => { e.stopPropagation(); startDrag(e, 'right', field.id) }}
+                  />
+                )}
                 {isEditing ? (
                   <input autoFocus className="w-full text-center text-xs bg-transparent outline-none px-1"
                     value={draft} onChange={e => setDraft(e.target.value)}

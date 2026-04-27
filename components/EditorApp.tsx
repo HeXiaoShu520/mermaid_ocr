@@ -1150,16 +1150,31 @@ function EditorContent() {
   const [codeW, setCodeW] = useState(0);
   const [previewW, setPreviewW] = useState(0);
   const [visualW, setVisualW] = useState(0);
+  const initedRef = useRef(false);
+  const codeWRef = useRef(0);
+  const previewWRef = useRef(0);
 
-  // Initialize widths
+  // Initialize widths; on resize only adjust visualW to fill remaining space
   useEffect(() => {
     if (!containerRef.current) return;
-    const total = containerRef.current.clientWidth - 12;
-    if (codeW === 0) {
-      setCodeW(Math.round(total * 0.28));
-      setPreviewW(Math.round(total * 0.32));
-      setVisualW(total - Math.round(total * 0.28) - Math.round(total * 0.32) - 8);
-    }
+    const el = containerRef.current;
+    const ro = new ResizeObserver(entries => {
+      const total = entries[0].contentRect.width - 12;
+      if (!initedRef.current) {
+        const c = Math.round(total * 0.28);
+        const p = Math.round(total * 0.32);
+        codeWRef.current = c;
+        previewWRef.current = p;
+        setCodeW(c);
+        setPreviewW(p);
+        setVisualW(total - c - p - 8);
+        initedRef.current = true;
+      } else {
+        setVisualW(Math.max(220, total - codeWRef.current - previewWRef.current - 8));
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
 
   return (
@@ -1167,9 +1182,15 @@ function EditorContent() {
       <LeftPanel />
       <div ref={containerRef} style={{ flex: 1, display: "flex", padding: 12, minWidth: 0, overflow: "hidden", gap: 0 }}>
         <CodeEditor widthPx={codeW} />
-        <ResizeDivider onDrag={(dx) => { setCodeW(w => Math.max(220, w + dx)); setVisualW(w => Math.max(220, w - dx)) }} />
+        <ResizeDivider onDrag={(dx) => {
+          setCodeW(w => { const newW = Math.max(220, w + dx); codeWRef.current = newW; return newW; });
+          setVisualW(w => Math.max(220, w - dx));
+        }} />
         <MermaidPreview code={code} widthPx={previewW} />
-        <ResizeDivider onDrag={(dx) => { setPreviewW(w => Math.max(220, w + dx)); setVisualW(w => Math.max(220, w - dx)) }} />
+        <ResizeDivider onDrag={(dx) => {
+          setPreviewW(w => { const newW = Math.max(220, w + dx); previewWRef.current = newW; return newW; });
+          setVisualW(w => Math.max(220, w - dx));
+        }} />
         <div style={{ width: visualW || undefined, flex: visualW ? undefined : 1, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <VisualEditor />
         </div>

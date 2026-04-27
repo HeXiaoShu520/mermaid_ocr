@@ -87,6 +87,7 @@ interface GraphEditorState {
 
   setViewTransform: (t: { x: number; y: number; scale: number }) => void
   zoomTo: (scale: number, cx?: number, cy?: number) => void
+  centerView: (containerWidth: number, containerHeight: number) => void
 
   startConnection: (sourceId: string, sourceHandle: 'top' | 'bottom' | 'left' | 'right') => void
   updateConnectionMouse: (x: number, y: number) => void
@@ -236,6 +237,43 @@ export const useGraphEditorStore = create<GraphEditorState>((set, get) => ({
     } else {
       set({ viewTransform: { ...vt, scale: s } })
     }
+  },
+
+  centerView: (containerWidth: number, containerHeight: number) => {
+    const { nodes, subgraphs } = get()
+    if (nodes.length === 0 && subgraphs.length === 0) {
+      set({ viewTransform: { x: containerWidth / 2, y: 100, scale: 1 } })
+      return
+    }
+
+    // 计算所有节点和子图的边界
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    nodes.forEach(n => {
+      minX = Math.min(minX, n.x)
+      minY = Math.min(minY, n.y)
+      maxX = Math.max(maxX, n.x + n.width)
+      maxY = Math.max(maxY, n.y + n.height)
+    })
+    subgraphs.forEach(sg => {
+      minX = Math.min(minX, sg.x)
+      minY = Math.min(minY, sg.y)
+      maxX = Math.max(maxX, sg.x + sg.width)
+      maxY = Math.max(maxY, sg.y + sg.height)
+    })
+
+    const contentW = maxX - minX
+    const contentH = maxY - minY
+    const centerX = (minX + maxX) / 2
+    const centerY = (minY + maxY) / 2
+
+    // 计算合适的缩放比例（留 80px 边距）
+    const scale = Math.min(1, (containerWidth - 80) / contentW, (containerHeight - 80) / contentH)
+
+    // 居中
+    const x = containerWidth / 2 - centerX * scale
+    const y = containerHeight / 2 - centerY * scale
+
+    set({ viewTransform: { x, y, scale } })
   },
 
   // ─── Connection Actions ───

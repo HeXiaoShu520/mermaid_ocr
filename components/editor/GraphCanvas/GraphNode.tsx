@@ -202,7 +202,7 @@ export default function GraphNode({
   const nodeContent = (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, pointerEvents: 'none' }}>
       <span>{node.label}</span>
-      <span style={{ fontSize: 9, color: 'rgba(0,0,0,0.2)', lineHeight: 1 }}>{node.id}</span>
+      <span style={{ fontSize: 9, color: '#6366f1', lineHeight: 1, opacity: 0.7 }}>{node.id}</span>
     </div>
   )
 

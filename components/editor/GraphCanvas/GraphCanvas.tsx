@@ -221,6 +221,18 @@ export default function GraphCanvas({}: GraphCanvasProps) {
     return () => container.removeEventListener('wheel', handleWheel)
   }, [handleWheel])
 
+  // ─── Auto-center on nodes change ───
+  const centerView = useGraphEditorStore(s => s.centerView)
+  const prevNodesLengthRef = useRef(0)
+  useEffect(() => {
+    if (nodes.length > 0 && prevNodesLengthRef.current === 0 && containerRef.current) {
+      // 从空状态加载了节点，自动居中
+      const rect = containerRef.current.getBoundingClientRect()
+      centerView(rect.width, rect.height)
+    }
+    prevNodesLengthRef.current = nodes.length
+  }, [nodes.length, centerView])
+
   // ─── Node Drag Handlers ───
 
   const handleNodeDragStart = useCallback((nodeId: string) => {
