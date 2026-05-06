@@ -8,26 +8,20 @@ interface Props {
   lifelineHeight: number
   viewScale: number
   activations: SeqActivation[]
+  messages: { id: string; order: number }[]
 }
 
-export default function SeqParticipantNode({ participant, lifelineHeight, viewScale, activations }: Props) {
+export default function SeqParticipantNode({ participant, lifelineHeight, viewScale, activations, messages }: Props) {
   // 计算该参与者的激活区间
   const myActivations = activations.filter(a => a.participantId === participant.id)
   const activeBars: { y1: number; y2: number }[] = []
-  let activateY: number | null = null
-  const sorted = [...myActivations].sort((a, b) => a.order - b.order)
-  for (const a of sorted) {
-    const y = SEQ_HEAD_H + (a.order + 0.5) * SEQ_ROW_H
-    if (a.type === 'activate') {
-      activateY = y
-    } else if (a.type === 'deactivate' && activateY !== null) {
-      activeBars.push({ y1: activateY, y2: y })
-      activateY = null
-    }
-  }
-  // 未关闭的激活条延伸到生命线末尾
-  if (activateY !== null) {
-    activeBars.push({ y1: activateY, y2: lifelineHeight })
+  for (const a of myActivations) {
+    const startMsg = messages.find(m => m.id === a.startMsgId)
+    const endMsg = messages.find(m => m.id === a.endMsgId)
+    if (!startMsg || !endMsg) continue
+    const y1 = SEQ_HEAD_H + startMsg.order * SEQ_ROW_H + SEQ_ROW_H / 2 - 4
+    const y2 = SEQ_HEAD_H + endMsg.order * SEQ_ROW_H + SEQ_ROW_H / 2 + 4
+    activeBars.push({ y1, y2 })
   }
   const {
     selectedParticipantId, selectParticipant,
@@ -35,6 +29,7 @@ export default function SeqParticipantNode({ participant, lifelineHeight, viewSc
     setEditingParticipant, editingParticipantId,
     updateParticipant, setContextMenu,
     connecting, startConnection,
+    pendingActivation, pendingConnect, setPendingConnect,
   } = useSeqEditorStore()
 
   const isSelected = selectedParticipantId === participant.id
@@ -92,7 +87,10 @@ export default function SeqParticipantNode({ participant, lifelineHeight, viewSc
   const handleLifelineMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return
     e.stopPropagation()
-    // 计算点击位置的 y 坐标（画布坐标）
+    if (!pendingConnect) {
+      selectParticipant(participant.id)
+      return
+    }
     const svg = (e.target as SVGElement).closest('svg')
     if (svg) {
       const rect = svg.getBoundingClientRect()
@@ -101,17 +99,21 @@ export default function SeqParticipantNode({ participant, lifelineHeight, viewSc
     } else {
       startConnection(participant.id)
     }
-  }, [participant.id, viewScale, startConnection])
+    setPendingConnect(false)
+  }, [participant.id, viewScale, startConnection, pendingConnect, selectParticipant, setPendingConnect])
 
   const x = participant.x
   const boxLeft = x - BOX_W / 2
   const boxTop = 12
+  const isActor = participant.type === 'actor'
+  const ACTOR_H = 48
+  const lifelineStart = isActor ? boxTop + ACTOR_H : boxTop + BOX_H
 
   return (
     <>
       {/* 生命线 */}
       <line
-        x1={x} y1={boxTop + BOX_H}
+        x1={x} y1={lifelineStart}
         x2={x} y2={lifelineHeight}
         stroke="#c7d2fe" strokeWidth={1.5} strokeDasharray="6 4"
         style={{ pointerEvents: 'none' }}
@@ -121,9 +123,9 @@ export default function SeqParticipantNode({ participant, lifelineHeight, viewSc
       {activeBars.map((bar, i) => (
         <rect
           key={i}
-          x={x - 5} y={bar.y1}
-          width={10} height={bar.y2 - bar.y1}
-          fill="white" stroke="#6366f1" strokeWidth={1.5}
+          x={x - 7} y={bar.y1}
+          width={14} height={bar.y2 - bar.y1}
+          fill="#e0e7ff" stroke="#6366f1" strokeWidth={2}
           style={{ pointerEvents: 'none' }}
         />
       ))}
@@ -133,79 +135,83 @@ export default function SeqParticipantNode({ participant, lifelineHeight, viewSc
         x1={x} y1={boxTop + BOX_H + 10}
         x2={x} y2={lifelineHeight}
         stroke="transparent" strokeWidth={20}
-        style={{ cursor: connecting ? 'crosshair' : 'pointer', pointerEvents: 'auto' }}
+        style={{ cursor: pendingConnect ? 'crosshair' : 'pointer', pointerEvents: pendingActivation ? 'none' : 'auto' }}
         onMouseDown={handleLifelineMouseDown}
       />
 
       {/* 顶部参与者框 */}
       <g style={{ pointerEvents: 'auto' }}>
-        <rect
-          x={boxLeft} y={boxTop}
-          width={BOX_W} height={BOX_H}
-          rx={6}
-          fill={isSelected ? '#e0e7ff' : '#f0f4ff'}
-          stroke={isSelected ? '#6366f1' : '#a5b4fc'}
-          strokeWidth={isSelected ? 2 : 1.5}
-          style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
-          onMouseDown={handleMouseDown}
-          onDoubleClick={handleDoubleClick}
-          onContextMenu={handleContextMenu}
-        />
-        {participant.type === 'actor' && (
-          <text x={boxLeft + 8} y={boxTop + BOX_H / 2 + 1} fontSize={14} fill="#6366f1" dominantBaseline="middle">👤</text>
+        {isActor ? (
+          <rect x={boxLeft} y={boxTop} width={BOX_W} height={ACTOR_H}
+            fill="transparent" stroke="none"
+            style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+            onMouseDown={handleMouseDown} onDoubleClick={handleDoubleClick} onContextMenu={handleContextMenu}
+          />
+        ) : (
+          <rect
+            x={boxLeft} y={boxTop} width={BOX_W} height={BOX_H} rx={6}
+            fill={isSelected ? '#e0e7ff' : '#f0f4ff'}
+            stroke={isSelected ? '#6366f1' : '#a5b4fc'}
+            strokeWidth={isSelected ? 2 : 1.5}
+            style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+            onMouseDown={handleMouseDown} onDoubleClick={handleDoubleClick} onContextMenu={handleContextMenu}
+          />
+        )}
+        {isActor && (
+          <>
+            <circle cx={x} cy={boxTop + 8} r={7} fill={isSelected ? '#e0e7ff' : '#f0f4ff'} stroke={isSelected ? '#6366f1' : '#a5b4fc'} strokeWidth={isSelected ? 2 : 1.5} style={{ pointerEvents: 'none' }} />
+            <line x1={x} y1={boxTop + 15} x2={x} y2={boxTop + 30} stroke={isSelected ? '#6366f1' : '#a5b4fc'} strokeWidth={1.5} style={{ pointerEvents: 'none' }} />
+            <line x1={x - 9} y1={boxTop + 21} x2={x + 9} y2={boxTop + 21} stroke={isSelected ? '#6366f1' : '#a5b4fc'} strokeWidth={1.5} style={{ pointerEvents: 'none' }} />
+            <line x1={x} y1={boxTop + 30} x2={x - 7} y2={boxTop + 42} stroke={isSelected ? '#6366f1' : '#a5b4fc'} strokeWidth={1.5} style={{ pointerEvents: 'none' }} />
+            <line x1={x} y1={boxTop + 30} x2={x + 7} y2={boxTop + 42} stroke={isSelected ? '#6366f1' : '#a5b4fc'} strokeWidth={1.5} style={{ pointerEvents: 'none' }} />
+          </>
         )}
         {isEditing ? (
-          <foreignObject x={boxLeft + 4} y={boxTop + 4} width={BOX_W - 8} height={BOX_H - 8}>
-            <input
-              value={draft}
-              onChange={e => setDraft(e.target.value)}
+          <foreignObject x={boxLeft + 4} y={isActor ? boxTop + ACTOR_H : boxTop + 4} width={BOX_W - 8} height={BOX_H - 8}>
+            <input value={draft} onChange={e => setDraft(e.target.value)}
               onBlur={handleSave}
               onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setEditingParticipant(null) }}
-              style={{
-                width: '100%', height: '100%', textAlign: 'center',
-                fontSize: 12, border: 'none', outline: 'none',
-                background: 'transparent', fontFamily: 'inherit',
-              }}
-              autoFocus
-            />
+              style={{ width: '100%', height: '100%', textAlign: 'center', fontSize: 12, border: 'none', outline: 'none', background: 'transparent', fontFamily: 'inherit' }}
+              autoFocus />
           </foreignObject>
         ) : (
-          <text
-            x={x} y={boxTop + BOX_H / 2}
+          <text x={x} y={isActor ? boxTop + ACTOR_H + 12 : boxTop + BOX_H / 2}
             textAnchor="middle" dominantBaseline="middle"
             fontSize={12} fill="#3730a3" fontWeight={500}
-            style={{ pointerEvents: 'none' }}
-          >
+            style={{ pointerEvents: 'none' }}>
             {participant.label}
           </text>
         )}
       </g>
 
-      {/* ID 标签（顶部框下方） */}
-      <text
-        x={x} y={boxTop + BOX_H + 14}
+      {/* ID 标签 */}
+      <text x={x} y={lifelineStart + 12}
         textAnchor="middle" dominantBaseline="middle"
         fontSize={9} fill="#9ca3af" fontFamily="monospace"
-        style={{ pointerEvents: 'none' }}
-      >
+        style={{ pointerEvents: 'none' }}>
         {participant.id}
       </text>
 
       {/* 底部参与者框 */}
-      <g style={{ pointerEvents: 'none' }}>
-        <rect
-          x={boxLeft} y={lifelineHeight}
-          width={BOX_W} height={BOX_H}
-          rx={6}
-          fill="#f0f4ff" stroke="#a5b4fc" strokeWidth={1.5}
-        />
-        <text
-          x={x} y={lifelineHeight + BOX_H / 2}
-          textAnchor="middle" dominantBaseline="middle"
-          fontSize={12} fill="#3730a3"
-        >
-          {participant.label}
-        </text>
+      <g style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+        onMouseDown={e => { e.stopPropagation(); selectParticipant(participant.id) }}>
+        {isActor ? (
+          <>
+            <rect x={boxLeft} y={lifelineHeight} width={BOX_W} height={ACTOR_H} fill="transparent" stroke="none" />
+            <circle cx={x} cy={lifelineHeight + 8} r={7} fill={isSelected ? '#e0e7ff' : '#f0f4ff'} stroke={isSelected ? '#6366f1' : '#a5b4fc'} strokeWidth={isSelected ? 2 : 1.5} style={{ pointerEvents: 'none' }} />
+            <line x1={x} y1={lifelineHeight + 15} x2={x} y2={lifelineHeight + 30} stroke={isSelected ? '#6366f1' : '#a5b4fc'} strokeWidth={1.5} style={{ pointerEvents: 'none' }} />
+            <line x1={x - 9} y1={lifelineHeight + 21} x2={x + 9} y2={lifelineHeight + 21} stroke={isSelected ? '#6366f1' : '#a5b4fc'} strokeWidth={1.5} style={{ pointerEvents: 'none' }} />
+            <line x1={x} y1={lifelineHeight + 30} x2={x - 7} y2={lifelineHeight + 42} stroke={isSelected ? '#6366f1' : '#a5b4fc'} strokeWidth={1.5} style={{ pointerEvents: 'none' }} />
+            <line x1={x} y1={lifelineHeight + 30} x2={x + 7} y2={lifelineHeight + 42} stroke={isSelected ? '#6366f1' : '#a5b4fc'} strokeWidth={1.5} style={{ pointerEvents: 'none' }} />
+            <text x={x} y={lifelineHeight + ACTOR_H + 12} textAnchor="middle" dominantBaseline="middle" fontSize={12} fill="#3730a3" style={{ pointerEvents: 'none' }}>{participant.label}</text>
+          </>
+        ) : (
+          <>
+            <rect x={boxLeft} y={lifelineHeight} width={BOX_W} height={BOX_H} rx={6}
+              fill={isSelected ? '#e0e7ff' : '#f0f4ff'} stroke={isSelected ? '#6366f1' : '#a5b4fc'} strokeWidth={isSelected ? 2 : 1.5} />
+            <text x={x} y={lifelineHeight + BOX_H / 2} textAnchor="middle" dominantBaseline="middle" fontSize={12} fill="#3730a3" style={{ pointerEvents: 'none' }}>{participant.label}</text>
+          </>
+        )}
       </g>
     </>
   )

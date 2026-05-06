@@ -229,11 +229,14 @@ function layoutTree(root: MindmapNode): { nodes: LayoutNode[]; width: number; he
   return { nodes: result, width: maxX, height: maxY }
 }
 
-function CanvasPreview({ root, selectedId, onSelect }: {
+function CanvasPreview({ root, selectedId, onSelect, onLabelChange }: {
   root: MindmapNode
   selectedId: string | null
   onSelect: (id: string) => void
+  onLabelChange: (id: string, label: string) => void
 }) {
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [draft, setDraft] = useState('')
   const { nodes, width, height } = layoutTree(root)
   const nodeMap = new Map(nodes.map(n => [n.node.id, n]))
 
@@ -267,27 +270,57 @@ function CanvasPreview({ root, selectedId, onSelect }: {
     const color = DEPTH_COLORS[ln.node.depth % DEPTH_COLORS.length]
     const bg = SHAPE_COLORS[ln.node.shape]
     const isSelected = selectedId === ln.node.id
+    const isEditing = editingId === ln.node.id
     const rx = ln.node.shape === 'circle' ? ln.height / 2 :
                ln.node.shape === 'rounded' ? 12 :
                ln.node.shape === 'square' ? 2 : 6
 
     return (
-      <g key={ln.node.id} onClick={() => onSelect(ln.node.id)} style={{ cursor: 'pointer' }}>
+      <g key={ln.node.id}
+        style={{ cursor: 'pointer' }}
+        onClick={() => onSelect(ln.node.id)}
+        onDoubleClick={e => { e.stopPropagation(); setDraft(ln.node.label); setEditingId(ln.node.id) }}
+      >
         <rect
           x={ln.x} y={ln.y} width={ln.width} height={ln.height}
           rx={rx} ry={rx}
-          fill={bg}
+          fill={isSelected ? '#dbeafe' : bg}
           stroke={isSelected ? '#3b82f6' : color}
-          strokeWidth={isSelected ? 2 : 1}
+          strokeWidth={isSelected ? 2.5 : 1}
         />
-        <text
-          x={ln.x + ln.width / 2} y={ln.y + ln.height / 2}
-          textAnchor="middle" dominantBaseline="middle"
-          fontSize={11} fill="#1f2937"
-          style={{ pointerEvents: 'none', userSelect: 'none' }}
-        >
-          {ln.node.label.length > 10 ? ln.node.label.slice(0, 9) + '…' : ln.node.label}
-        </text>
+        {isSelected && (
+          <rect
+            x={ln.x - 3} y={ln.y - 3} width={ln.width + 6} height={ln.height + 6}
+            rx={rx + 3} ry={rx + 3}
+            fill="none" stroke="#3b82f6" strokeWidth={1.5} strokeDasharray="4 2" opacity={0.6}
+          />
+        )}
+        {isEditing ? (
+          <foreignObject x={ln.x + 2} y={ln.y + 2} width={ln.width - 4} height={ln.height - 4}>
+            <input
+              autoFocus
+              style={{ width: '100%', height: '100%', textAlign: 'center', fontSize: 11, border: 'none', background: 'transparent', outline: 'none' }}
+              value={draft}
+              onChange={e => setDraft(e.target.value)}
+              onBlur={() => { if (draft.trim()) onLabelChange(ln.node.id, draft.trim()); setEditingId(null) }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { if (draft.trim()) onLabelChange(ln.node.id, draft.trim()); setEditingId(null) }
+                if (e.key === 'Escape') setEditingId(null)
+                e.stopPropagation()
+              }}
+              onClick={e => e.stopPropagation()}
+            />
+          </foreignObject>
+        ) : (
+          <text
+            x={ln.x + ln.width / 2} y={ln.y + ln.height / 2}
+            textAnchor="middle" dominantBaseline="middle"
+            fontSize={11} fill="#1f2937"
+            style={{ pointerEvents: 'none', userSelect: 'none' }}
+          >
+            {ln.node.label.length > 10 ? ln.node.label.slice(0, 9) + '…' : ln.node.label}
+          </text>
+        )}
       </g>
     )
   })
@@ -433,7 +466,7 @@ export function MindmapEditor({ data, onUpdate }: MindmapEditorProps) {
 
       {/* 中间画布预览 */}
       <div className="flex-1 overflow-auto bg-gray-50 p-4">
-        <CanvasPreview root={root} selectedId={selectedId} onSelect={setSelectedId} />
+        <CanvasPreview root={root} selectedId={selectedId} onSelect={setSelectedId} onLabelChange={handleLabelChange} />
       </div>
 
       {/* 右侧属性面板 */}

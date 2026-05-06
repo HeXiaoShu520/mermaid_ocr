@@ -14,7 +14,8 @@ export default function SeqMessageLine({ message, participants }: Props) {
     editingMessageId, setEditingMessage,
     updateMessage, setContextMenu,
     connecting, endConnection,
-    moveMessageOrder, messages,
+    moveMessageOrder,
+    pendingActivation, setPendingActivation, addActivation,
   } = useSeqEditorStore()
 
   const isSelected = selectedMessageId === message.id
@@ -36,8 +37,33 @@ export default function SeqMessageLine({ message, participants }: Props) {
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
     if (connecting) return
+    // 激活条选择模式
+    if (pendingActivation) {
+      if (!pendingActivation.startMsgId) {
+        // 根据鼠标 X 坐标选最近的参与者
+        const svg = (e.target as SVGElement).closest('svg')
+        let clickedParticipantId = message.to
+        if (svg) {
+          const rect = svg.getBoundingClientRect()
+          const clickX = e.clientX - rect.left
+          const distFrom = Math.abs(clickX - x1)
+          const distTo = Math.abs(clickX - x2)
+          clickedParticipantId = distFrom < distTo ? message.from : message.to
+        }
+        setPendingActivation({ startMsgId: message.id, participantId: clickedParticipantId })
+      } else {
+        addActivation({
+          id: `act-${Date.now()}`,
+          participantId: pendingActivation.participantId ?? message.to,
+          startMsgId: pendingActivation.startMsgId!,
+          endMsgId: message.id,
+        })
+        setPendingActivation(null)
+      }
+      return
+    }
     selectMessage(message.id)
-  }, [message.id, selectMessage, connecting])
+  }, [message, selectMessage, connecting, pendingActivation, setPendingActivation, addActivation, x1, x2])
 
   // ─── 双击编辑 ───
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
@@ -102,14 +128,16 @@ export default function SeqMessageLine({ message, participants }: Props) {
     moveMessageOrder(draggedId, message.order)
   }, [message.id, message.order, moveMessageOrder])
 
-  const strokeColor = isSelected ? '#3b82f6' : isDragging ? '#a78bfa' : '#6b7280'
-  const strokeW = isSelected ? 2 : 1.5
+  const isActStart = pendingActivation?.startMsgId === message.id
+  const isActPending = !!pendingActivation && !pendingActivation.startMsgId
+  const strokeColor = isActStart ? '#f59e0b' : isSelected ? '#3b82f6' : isDragging ? '#a78bfa' : '#6b7280'
+  const strokeW = isActStart || isSelected ? 2 : 1.5
   const dashArray = message.style === 'dashed' ? '6 3' : undefined
 
   return (
     <g
       draggable
-      style={{ cursor: isDragging ? 'grabbing' : 'grab', pointerEvents: 'auto' }}
+      style={{ cursor: pendingActivation ? 'crosshair' : isDragging ? 'grabbing' : 'grab', pointerEvents: 'auto' }}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onContextMenu={handleContextMenu}

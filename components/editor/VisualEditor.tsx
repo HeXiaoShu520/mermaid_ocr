@@ -8,7 +8,6 @@ import { KanbanEditor } from './KanbanEditor'
 import { MindmapEditor } from './MindmapEditor'
 import { TimelineEditor } from './TimelineEditor'
 import { TreeViewEditor } from './TreeViewEditor'
-import { BlockEditor } from './BlockEditor'
 import SequenceCanvas from './SequenceCanvas/SequenceCanvas'
 import { getDiagramType } from '@/lib/mermaidCodeEditor'
 import { useGraphEditorStore } from '@/lib/graphEditorStore'
@@ -21,12 +20,10 @@ import { parseKanbanDiagram, serializeKanbanDiagram, type KanbanData } from '@/l
 import { parseMindmap, serializeMindmap, type MindmapData } from '@/lib/mindmapParser'
 import { parseTimelineDiagram, serializeTimelineDiagram, type TimelineData } from '@/lib/timelineParser'
 import { parseTreeViewDiagram, serializeTreeViewDiagram, type TreeViewData } from '@/lib/treeViewParser'
-import { parseBlockDiagram, serializeBlockDiagram, type BlockData } from '@/lib/blockParser'
 import { useSeqEditorStore } from '@/lib/seqEditorStore'
 import { parseSeqCode, serializeSeqCode } from '@/lib/seqParser'
 import { usePacketEditorStore } from '@/lib/packetEditorStore'
 import { useKanbanEditorStore } from '@/lib/kanbanEditorStore'
-import { useBlockEditorStore } from '@/lib/blockEditorStore'
 import { parseMermaidStateDiagram } from '@/lib/stateParser'
 import { serializeStateDiagram } from '@/lib/diagramSerializers'
 import AiChatBox from './AiChatBox'
@@ -46,7 +43,6 @@ export default function VisualEditor() {
   const [mindmapDraft, setMindmapDraft] = useState<MindmapData | null>(null)
   const [timelineDraft, setTimelineDraft] = useState<TimelineData | null>(null)
   const [treeViewDraft, setTreeViewDraft] = useState<TreeViewData | null>(null)
-  const [blockDraft, setBlockDraft] = useState<BlockData | null>(null)
 
   // 读取代码
   const handleReadCode = useCallback(() => {
@@ -62,7 +58,6 @@ export default function VisualEditor() {
     setMindmapDraft(null)
     setTimelineDraft(null)
     setTreeViewDraft(null)
-    setBlockDraft(null)
     useGraphEditorStore.getState().initGraph([], [], null, [])
     useSeqEditorStore.getState().initSeqGraph([], [], [])
 
@@ -85,10 +80,6 @@ export default function VisualEditor() {
       setTimelineDraft(parseTimelineDiagram(code))
     } else if (dt === 'treeView') {
       setTreeViewDraft(parseTreeViewDiagram(code))
-    } else if (dt === 'block') {
-      const bd = parseBlockDiagram(code)
-      setBlockDraft(bd)
-      useBlockEditorStore.getState().setData(bd)
     } else if (dt === 'sequenceDiagram') {
       const result = parseSeqCode(code)
       useSeqEditorStore.getState().initSeqGraph(result.participants, result.messages, result.fragments, result.activations)
@@ -128,7 +119,6 @@ export default function VisualEditor() {
     }
   }, [])
 
-  // 回写代码
   const handleWriteCode = useCallback(() => {
     const currentDt = getDiagramType(useStore.getState().mermaid)
     let code = ''
@@ -147,8 +137,6 @@ export default function VisualEditor() {
       code = serializeTimelineDiagram(timelineDraft)
     } else if (treeViewDraft) {
       code = serializeTreeViewDiagram(treeViewDraft)
-    } else if (blockDraft) {
-      code = serializeBlockDiagram(blockDraft)
     } else if (currentDt === 'sequenceDiagram') {
       const { participants, messages, fragments, activations } = useSeqEditorStore.getState()
       code = serializeSeqCode(participants, messages, fragments, activations)
@@ -178,7 +166,7 @@ export default function VisualEditor() {
     if (code) {
       useStore.getState().setMermaid(code)
     }
-  }, [pieDraft, xyDraft, packetDraft, kanbanDraft])
+  }, [pieDraft, xyDraft, packetDraft, kanbanDraft, mindmapDraft, timelineDraft, treeViewDraft])
 
   // 格式化布局：用当前 direction 重新跑 dagre
   const handleRelayout = useCallback(() => {
@@ -392,30 +380,6 @@ export default function VisualEditor() {
             <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 pointer-events-none gap-3">
               <div style={{ fontSize: 72, lineHeight: 1 }}>🌳</div>
               <div style={{ fontSize: 13, fontWeight: 500, color: "#6b7280" }}>点击"读取代码"加载树形图</div>
-            </div>
-          )}
-          <AiChatBox />
-        </div>
-      </div>
-    )
-  }
-
-  // 块图编辑器
-  if (diagramType === 'block') {
-    return (
-      <div className="flex-1 flex flex-col relative">
-        <div className="flex items-center gap-2 px-3 py-2.5 border-b bg-gray-50">
-          <div className="text-xs font-semibold text-gray-700">块图</div>
-          <button onClick={handleReadCode} className="px-4 py-2 bg-cyan-50 border border-cyan-300 text-cyan-700 rounded text-sm hover:bg-cyan-100 transition-colors">⬇️ 读取代码</button>
-          <button onClick={handleWriteCode} className="px-4 py-2 bg-orange-50 border border-orange-300 text-orange-700 rounded text-sm hover:bg-orange-100 transition-colors">⬆️ 回写代码</button>
-        </div>
-        <div className="flex-1 relative">
-          {blockDraft ? (
-            <BlockEditor data={blockDraft} onUpdate={setBlockDraft} />
-          ) : (
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 pointer-events-none gap-3">
-              <div style={{ fontSize: 72, lineHeight: 1 }}>🧱</div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: "#6b7280" }}>点击"读取代码"加载块图</div>
             </div>
           )}
           <AiChatBox />

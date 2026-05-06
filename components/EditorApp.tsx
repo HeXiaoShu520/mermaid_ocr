@@ -23,11 +23,8 @@ import { dagreLayout } from "@/lib/graphLayout";
 import { useSeqEditorStore } from "@/lib/seqEditorStore";
 import { usePacketEditorStore } from "@/lib/packetEditorStore";
 import { useKanbanEditorStore } from "@/lib/kanbanEditorStore";
-import { useBlockEditorStore } from "@/lib/blockEditorStore";
 import { serializePacketDiagram } from "@/lib/packetParser";
 import { serializeKanbanDiagram, type KanbanItem } from "@/lib/kanbanParser";
-import { serializeBlockDiagram } from "@/lib/blockParser";
-import type { BlockShape } from "@/lib/blockParser";
 
 mermaid.initialize({ startOnLoad: false, logLevel: 'error' });
 
@@ -35,7 +32,7 @@ const NEU_BG = "var(--neu-bg)";
 const PANEL_BORDER = "1px solid rgba(163,177,198,0.25)";
 const PANEL_RADIUS = 10;
 
-type DiagramType = 'flowchart' | 'classDiagram' | 'stateDiagram' | 'sequenceDiagram' | 'pie' | 'xychart' | 'packet' | 'kanban' | 'mindmap' | 'timeline' | 'treeView' | 'block' | null
+type DiagramType = 'flowchart' | 'classDiagram' | 'stateDiagram' | 'sequenceDiagram' | 'pie' | 'xychart' | 'packet' | 'kanban' | 'mindmap' | 'timeline' | 'treeView' | null
 
 function parseSeqData(code: string): { participants: SeqParticipant[]; messages: SeqMessage[] } {
   const lines = code.split('\n').map(l => l.trim()).filter(Boolean)
@@ -86,7 +83,6 @@ function getDiagramType(code: string): DiagramType {
   if (/^mindmap/i.test(stripped)) return 'mindmap'
   if (/^timeline/i.test(stripped)) return 'timeline'
   if (/^treeView-beta/i.test(stripped)) return 'treeView'
-  if (/^block-beta/i.test(stripped)) return 'block'
   return null
 }
 
@@ -264,6 +260,7 @@ const CURVES: { value: CurveStyle; label: string }[] = [
 /* ─── Global Settings (left panel — applies to all diagrams) ─── */
 function GlobalSettingsSection() {
   const { theme, look, showGrid, setTheme, setLook, setShowGrid } = useSvgEditorStore();
+  const setGraphShowGrid = useGraphEditorStore(s => s.setShowGrid);
   const selectStyle: React.CSSProperties = {
     width: "100%", background: "#fff", border: PANEL_BORDER, borderRadius: 8,
     padding: "5px 8px", fontSize: 11, color: "#6B7280", cursor: "pointer",
@@ -288,7 +285,7 @@ function GlobalSettingsSection() {
       </div>
       <div>
         <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 4 }}>背景网格</div>
-        <FlatButton onClick={() => setShowGrid(!showGrid)}
+        <FlatButton onClick={() => { setShowGrid(!showGrid); setGraphShowGrid(!showGrid) }}
           active={showGrid} style={{ width: "100%" }}>
           {showGrid ? "▦ 已显示" : "▢ 已隐藏"}
         </FlatButton>
@@ -720,14 +717,7 @@ function StateDiagramSettingsSection() {
 }
 
 function SequenceDiagramSettingsSection() {
-  const { pendingAddType, setPendingAddType, participants, messages, selectedMessageId, activations, addActivation, removeActivation } = useSeqEditorStore();
-
-  const selectedMsg = messages.find(m => m.id === selectedMessageId) ?? null
-
-  const handleAddActivation = (participantId: string, type: 'activate' | 'deactivate') => {
-    const order = selectedMsg ? selectedMsg.order + 0.5 : (messages.length > 0 ? Math.max(...messages.map(m => m.order)) + 0.5 : 0.5)
-    addActivation({ id: `act-${Date.now()}`, participantId, order, type })
-  }
+  const { pendingAddType, setPendingAddType, participants, messages, activations, removeActivation, pendingActivation, setPendingActivation, pendingConnect, setPendingConnect } = useSeqEditorStore();
 
   const PARTICIPANTS = [
     { type: 'participant' as const, label: '参与者', icon: '▭' },
@@ -771,6 +761,15 @@ function SequenceDiagramSettingsSection() {
         </div>
       </div>
       <div>
+        <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 4 }}>消息线（点击后在生命线上选起点）</div>
+        <FlatButton
+          onClick={() => { setPendingConnect(!pendingConnect); setPendingAddType(null) }}
+          active={pendingConnect}
+          style={{ fontSize: 10, padding: "6px 8px", width: '100%' }}>
+          ➜ 添加消息线
+        </FlatButton>
+      </div>
+      <div>
         <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 4 }}>片段（点击后框选消息范围）</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4 }}>
           {FRAGMENTS.map(f => (
@@ -797,31 +796,36 @@ function SequenceDiagramSettingsSection() {
         style={{ fontSize: 10, padding: "4px 8px", color: "#9CA3AF", display: pendingAddType ? 'block' : 'none' }}>
         取消选择
       </FlatButton>
-      {participants.length > 0 && (
+      {participants.length > 0 && messages.length > 0 && (
         <div>
-          <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 4 }}>
-            激活条{selectedMsg ? `（在消息 "${selectedMsg.label}" 之后）` : '（在末尾）'}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-            {participants.map(p => (
-              <div key={p.id} style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 3, alignItems: "center" }}>
-                <span style={{ fontSize: 10, color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.label}</span>
-                <FlatButton onClick={() => handleAddActivation(p.id, 'activate')} style={{ fontSize: 9, padding: "2px 5px" }}>激活</FlatButton>
-                <FlatButton onClick={() => handleAddActivation(p.id, 'deactivate')} style={{ fontSize: 9, padding: "2px 5px" }}>停用</FlatButton>
+          <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 4 }}>激活条</div>
+          {pendingActivation ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+              <div style={{ fontSize: 10, color: "#f59e0b", textAlign: "center", padding: "4px 6px", background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 4 }}>
+                {pendingActivation.startMsgId ? '点击终点消息' : '点击起点消息'}
               </div>
-            ))}
-          </div>
+              <FlatButton onClick={() => setPendingActivation(null)} style={{ fontSize: 10, padding: "3px 8px", color: "#9CA3AF" }}>取消</FlatButton>
+            </div>
+          ) : (
+            <FlatButton onClick={() => setPendingActivation({})} style={{ fontSize: 11, padding: "7px 10px", width: '100%' }}>
+              + 添加激活条
+            </FlatButton>
+          )}
           {activations.length > 0 && (
             <div style={{ marginTop: 6 }}>
               <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 3 }}>已有激活条</div>
-              {activations.map(a => (
-                <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 10, padding: "2px 0" }}>
-                  <span style={{ color: a.type === 'activate' ? '#059669' : '#dc2626' }}>
-                    {a.type === 'activate' ? '▶' : '■'} {a.participantId}
-                  </span>
-                  <button onClick={() => removeActivation(a.id)} style={{ fontSize: 9, color: "#9CA3AF", background: "none", border: "none", cursor: "pointer", padding: "0 2px" }}>✕</button>
-                </div>
-              ))}
+              {activations.map(a => {
+                const startMsg = messages.find(m => m.id === a.startMsgId)
+                const endMsg = messages.find(m => m.id === a.endMsgId)
+                return (
+                  <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 10, padding: "2px 0" }}>
+                    <span style={{ color: "#374151" }}>
+                      {a.participantId}: {startMsg?.label ?? a.startMsgId} → {endMsg?.label ?? a.endMsgId}
+                    </span>
+                    <button onClick={() => removeActivation(a.id)} style={{ fontSize: 9, color: "#9CA3AF", background: "none", border: "none", cursor: "pointer", padding: "0 2px" }}>✕</button>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
@@ -1011,83 +1015,6 @@ function KanbanEditorPanel() {
 }
 
 /* ─── Block Editor Panel ─── */
-const BLOCK_SHAPES: { value: BlockShape; label: string }[] = [
-  { value: 'rectangle', label: '矩形' },
-  { value: 'rounded', label: '圆角' },
-  { value: 'stadium', label: '体育场' },
-  { value: 'subroutine', label: '子程序' },
-  { value: 'cylinder', label: '圆柱' },
-  { value: 'circle', label: '圆形' },
-  { value: 'diamond', label: '菱形' },
-  { value: 'hexagon', label: '六边形' },
-  { value: 'parallelogram', label: '平行四边形' },
-  { value: 'trapezoid', label: '梯形' },
-  { value: 'double-circle', label: '双圆' },
-]
-
-function BlockEditorPanel() {
-  const { data, selectedId, setSelectedId, updateData } = useBlockEditorStore()
-  const { setMermaid } = useStore()
-
-  if (!data) return <div style={{ fontSize: 11, color: "#9CA3AF", textAlign: "center", padding: "12px 0" }}>点击"读取代码"加载图表</div>
-
-  const selectedBlock = data.blocks.find(b => b.id === selectedId) ?? null
-
-  const handleBlockChange = (patch: Partial<typeof data.blocks[0]>) => {
-    if (!selectedBlock) return
-    const newData = { ...data, blocks: data.blocks.map(b => b.id === selectedId ? { ...b, ...patch } : b) }
-    updateData(newData)
-    setMermaid(serializeBlockDiagram(newData))
-  }
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div>
-        <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 4 }}>块列表（共 {data.blocks.filter(b => !b.isSpace).length} 个）</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          {data.blocks.filter(b => !b.isSpace).map(b => (
-            <div key={b.id}
-              onClick={() => setSelectedId(selectedId === b.id ? null : b.id)}
-              style={{
-                padding: "4px 8px", borderRadius: 4, fontSize: 11, cursor: "pointer",
-                background: selectedId === b.id ? "#EEF2FF" : "#fff",
-                border: `1px solid ${selectedId === b.id ? "#4F46E5" : "#e5e7eb"}`,
-                color: selectedId === b.id ? "#4F46E5" : "#374151",
-                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-              }}>
-              <span style={{ fontSize: 9, color: "#9CA3AF", marginRight: 4 }}>{b.shape}</span>{b.label}
-            </div>
-          ))}
-        </div>
-      </div>
-      {selectedBlock && !selectedBlock.isSpace && (
-        <div style={{ background: "#f9fafb", borderRadius: 6, padding: 8, border: "1px solid #e5e7eb" }}>
-          <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 6 }}>选中块</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <div>
-              <div style={{ fontSize: 10, color: "#6B7280", marginBottom: 2 }}>标签</div>
-              <input
-                value={selectedBlock.label}
-                onChange={e => handleBlockChange({ label: e.target.value })}
-                style={{ width: "100%", border: "1px solid #e5e7eb", borderRadius: 4, padding: "3px 6px", fontSize: 11, outline: "none" }}
-              />
-            </div>
-            <div>
-              <div style={{ fontSize: 10, color: "#6B7280", marginBottom: 2 }}>形状</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 3 }}>
-                {BLOCK_SHAPES.map(s => (
-                  <FlatButton key={s.value} onClick={() => handleBlockChange({ shape: s.value })} active={selectedBlock.shape === s.value}
-                    style={{ fontSize: 10, padding: "3px 6px" }}>{s.label}</FlatButton>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
 /* ─── Right Sidebar: Object Settings ─── */
 function RightSidebar({ supported, diagramType }: { supported: boolean; diagramType: string }) {
   if (!supported || diagramType === 'treeView' || diagramType === 'mindmap') return null;
@@ -1105,11 +1032,6 @@ function RightSidebar({ supported, diagramType }: { supported: boolean; diagramT
       {diagramType === 'kanban' && (
         <Section title="看板">
           <KanbanEditorPanel />
-        </Section>
-      )}
-      {diagramType === 'block' && (
-        <Section title="块图">
-          <BlockEditorPanel />
         </Section>
       )}
       {diagramType === 'flowchart' && (
@@ -1146,7 +1068,7 @@ function RightSidebar({ supported, diagramType }: { supported: boolean; diagramT
 function EditorContent() {
   const { mermaid: code } = useStore();
   const diagramType = getDiagramType(code) || 'flowchart';
-  const supported = diagramType === 'flowchart' || diagramType === 'classDiagram' || diagramType === 'stateDiagram' || diagramType === 'sequenceDiagram' || diagramType === 'pie' || diagramType === 'xychart' || diagramType === 'packet' || diagramType === 'kanban' || diagramType === 'mindmap' || diagramType === 'timeline' || diagramType === 'treeView' || diagramType === 'block'
+  const supported = diagramType === 'flowchart' || diagramType === 'classDiagram' || diagramType === 'stateDiagram' || diagramType === 'sequenceDiagram' || diagramType === 'pie' || diagramType === 'xychart' || diagramType === 'packet' || diagramType === 'kanban' || diagramType === 'mindmap' || diagramType === 'timeline' || diagramType === 'treeView'
 
   // Resizable column widths
   const containerRef = useRef<HTMLDivElement>(null);

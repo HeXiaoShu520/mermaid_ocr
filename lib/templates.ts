@@ -161,14 +161,6 @@ export const templateCategories: TemplateCategory[] = [
         "文档"`,
       },
       {
-        name: "块图",
-        code: `block-beta
-  columns 3
-  A["前端"] B["API网关"] C["后端服务"]
-  space D[("数据库")] space
-  E["CDN"] space F[["缓存"]]`,
-      },
-      {
         name: "数据包图",
         code: `packet-beta
   0-7: "源端口"

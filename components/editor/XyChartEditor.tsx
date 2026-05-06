@@ -23,6 +23,7 @@ export function XyChartEditor({ data, onUpdate }: Props) {
   const [dragTooltip, setDragTooltip] = useState<{ si: number; vi: number; val: number } | null>(null)
   const [dragOverCol, setDragOverCol] = useState<number | null>(null)
   const valDragRef = useRef<{ si: number; vi: number; startY: number; startVal: number } | null>(null)
+  const didValDrag = useRef(false)
   const colDragRef = useRef<{ fromVi: number; startX: number } | null>(null)
 
   const W = 560, H = 300, PAD_L = 50, PAD_B = 40, PAD_T = 20, PAD_R = 20
@@ -74,7 +75,6 @@ export function XyChartEditor({ data, onUpdate }: Props) {
   // vertical drag to change value
   const handleValDragStart = (e: React.MouseEvent, si: number, vi: number, currentVal: number) => {
     e.preventDefault(); e.stopPropagation()
-    setSelectedCell(null)
     valDragRef.current = { si, vi, startY: e.clientY, startVal: currentVal }
     const onMove = (ev: MouseEvent) => {
       if (!valDragRef.current) return
@@ -219,7 +219,7 @@ export function XyChartEditor({ data, onUpdate }: Props) {
                 <text x={cx} y={PAD_T + chartH + 14} textAnchor="middle" fontSize={10}
                   fill={isSelected ? '#3b82f6' : '#6b7280'} fontWeight={isSelected ? 600 : 400}
                   style={{ cursor: 'pointer' }}
-                  onClick={e => { e.stopPropagation(); setSelectedCol(i === selectedCol ? null : i) }}
+                  onMouseDown={e => { e.stopPropagation(); setSelectedCol(i === selectedCol ? null : i) }}
                   onDoubleClick={e => { e.stopPropagation(); setEditingLabel(i); setLabelDraft(data.xLabels[i] ?? String(i + 1)) }}>
                   {data.xLabels[i] ?? i + 1}
                 </text>
@@ -248,7 +248,7 @@ export function XyChartEditor({ data, onUpdate }: Props) {
                   opacity={isDragging ? 0.7 : 1}
                   style={{ cursor: 'ns-resize' }}
                   onMouseDown={e => { e.stopPropagation(); handleValDragStart(e, si, vi, v) }}
-                  onClick={e => { e.stopPropagation(); if (valDragRef.current) return; setSelectedCell({ si, vi }); setValueDraft(v.toString()) }} />
+                  onClick={e => { e.stopPropagation(); setSelectedCell({ si, vi }); setValueDraft(v.toString()) }} />
                 {!isDragging && !isSelected && (
                   <text x={x + barW / 2} y={y - 4} textAnchor="middle" fontSize={9} fill={COLORS[si % COLORS.length]} className="pointer-events-none">{v}</text>
                 )}
@@ -295,7 +295,10 @@ export function XyChartEditor({ data, onUpdate }: Props) {
                       stroke={isSelected ? '#1d4ed8' : 'white'} strokeWidth={2}
                       style={{ cursor: 'ns-resize' }}
                       onMouseDown={e => { e.stopPropagation(); handleValDragStart(e, si, vi, v) }}
-                      onClick={e => { e.stopPropagation(); if (valDragRef.current) return; setSelectedCell({ si, vi }); setValueDraft(v.toString()) }} />
+                      onClick={e => { e.stopPropagation(); setSelectedCell({ si, vi }); setValueDraft(v.toString()) }} />
+                    {!isDragging && !isSelected && (
+                      <text x={cx} y={cy - 10} textAnchor="middle" fontSize={9} fill={COLORS[si % COLORS.length]} style={{ pointerEvents: 'none' }}>{v}</text>
+                    )}
                     {isDragging && (
                       <g>
                         <rect x={cx - 22} y={cy - 28} width={44} height={18} rx={3} fill="#1d4ed8" opacity={0.9} />
@@ -347,21 +350,27 @@ export function XyChartEditor({ data, onUpdate }: Props) {
       {/* Column action bar — always visible */}
       <div className="flex gap-2 mt-2 items-center">
         <span className="text-xs text-gray-400">
-          {selectedCell !== null ? `列 ${selectedCell.vi + 1}：` : '列操作：'}
+          {(selectedCell ?? selectedCol) !== null ? `列 ${(selectedCell?.vi ?? selectedCol!) + 1}：` : '列操作：'}
         </span>
-        <button onClick={() => selectedCell !== null && insertCol(selectedCell.vi)}
-          disabled={selectedCell === null}
-          className="text-xs px-2 py-0.5 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">← 左插列</button>
-        <button onClick={() => selectedCell !== null && insertCol(selectedCell.vi + 1)}
-          disabled={selectedCell === null}
-          className="text-xs px-2 py-0.5 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">右插列 →</button>
-        <button
-          onMouseDown={e => selectedCell !== null && handleColDragStart(e, selectedCell.vi)}
-          disabled={selectedCell === null}
-          className="text-xs px-2 py-0.5 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200 cursor-ew-resize disabled:opacity-40 disabled:cursor-not-allowed">⇄ 拖移换位</button>
-        <button onClick={() => selectedCell !== null && deleteCol(selectedCell.vi)}
-          disabled={selectedCell === null}
-          className="text-xs px-2 py-0.5 bg-red-500 text-white rounded hover:bg-red-600 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">删除列</button>
+        {(() => {
+          const vi = selectedCell?.vi ?? selectedCol
+          const disabled = vi === null || vi === undefined
+          return (<>
+            <button onMouseDown={e => { e.preventDefault(); !disabled && insertCol(vi!) }}
+              disabled={disabled}
+              className="text-xs px-2 py-0.5 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">← 左插列</button>
+            <button onMouseDown={e => { e.preventDefault(); !disabled && insertCol(vi! + 1) }}
+              disabled={disabled}
+              className="text-xs px-2 py-0.5 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">右插列 →</button>
+            <button
+              onMouseDown={e => { e.preventDefault(); !disabled && handleColDragStart(e, vi!) }}
+              disabled={disabled}
+              className="text-xs px-2 py-0.5 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200 cursor-ew-resize disabled:opacity-40 disabled:cursor-not-allowed">⇄ 拖移换位</button>
+            <button onMouseDown={e => { e.preventDefault(); !disabled && deleteCol(vi!) }}
+              disabled={disabled}
+              className="text-xs px-2 py-0.5 bg-red-500 text-white rounded hover:bg-red-600 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">删除列</button>
+          </>)
+        })()}
       </div>
     </div>
   )

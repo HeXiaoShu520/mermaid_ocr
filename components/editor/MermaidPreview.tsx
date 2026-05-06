@@ -20,6 +20,7 @@ export default function MermaidPreview({ code, widthPx }: MermaidPreviewProps) {
 
   const theme = useSvgEditorStore(s => s.theme)
   const look = useSvgEditorStore(s => s.look)
+  const showGrid = useSvgEditorStore(s => s.showGrid)
 
   // 渲染完成后居中显示
   useEffect(() => {
@@ -36,7 +37,9 @@ export default function MermaidPreview({ code, widthPx }: MermaidPreviewProps) {
       const sH = svgEl.clientHeight || svgEl.getBoundingClientRect().height
       if (sW === 0 || sH === 0) return
       // fit：以宽高中较小的缩放比为准，留 20px 边距
-      const scale = Math.min((cW - 20) / sW, (cH - 32) / sH)
+      let scale = Math.min((cW - 20) / sW, (cH - 32) / sH)
+      // treeView-beta 默认缩小到 50%
+      if (/^treeView-beta/i.test(code.trim())) scale *= 0.5
       const x = (cW - sW * scale) / 2
       // 垂直靠上，留 16px 上边距
       const y = 16
@@ -318,6 +321,10 @@ export default function MermaidPreview({ code, widthPx }: MermaidPreviewProps) {
       <div
         ref={containerRef}
         className="flex-1 relative overflow-hidden"
+        style={{
+          backgroundImage: showGrid ? 'radial-gradient(circle, #d1d5db 1px, transparent 1px)' : undefined,
+          backgroundSize: showGrid ? '20px 20px' : undefined,
+        }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}

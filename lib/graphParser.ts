@@ -257,63 +257,33 @@ export function parseMermaidFlowchart(code: string): GraphData {
       continue
     }
 
-    // 边：支持多种箭头和标签
-    // 用一个通用正则匹配所有 Mermaid 边语法
-    const ARROW_RE = /<?-+\.+-+>?|-?\.+->|<?-+>|<?>?=+>?|<?>?-+-<?|=+=|~+|-+x|-+o/
-    const edgeWithLabelRe = new RegExp(`^(.+?)\\s*(${ARROW_RE.source})\\s*\\|([^\\|]+)\\|\\s*(.+)$`)
-    const edgeWithLabelMatch = line.match(edgeWithLabelRe)
-    if (edgeWithLabelMatch) {
-      const [, fromPart, arrow, label, toPart] = edgeWithLabelMatch
-
-      // 解析源节点
-      const fromNode = parseNodeDefinition(fromPart.trim())
-      const fromId = fromNode ? fromNode.id : fromPart.trim()
-      upsertNode(nodes, subgraphs, fromId, fromNode ? { ...fromNode } : { id: fromId, label: fromId }, currentSubgraph)
-
-      // 解析目标节点
-      const toNode = parseNodeDefinition(toPart.trim())
-      const toId = toNode ? toNode.id : toPart.trim()
-      upsertNode(nodes, subgraphs, toId, toNode ? { ...toNode } : { id: toId, label: toId }, currentSubgraph)
-
-      const edgeStyle = classifyEdgeStyle(arrow)
-      const arrowType = classifyArrowType(arrow)
-      edges.push({
-        id: `${fromId}-${toId}-${edges.length}`,
-        source: fromId,
-        target: toId,
-        label: label.trim(),
-        style: edgeStyle,
-        arrowType,
-      })
-      continue
-    }
-
-    // 边：无标签
-    const edgeRe = new RegExp(`^(.+?)\\s*(${ARROW_RE.source})\\s*(.+)$`)
-    const edgeMatch = line.match(edgeRe)
-    if (edgeMatch) {
-      const [, fromPart, arrow, toPart] = edgeMatch
-
-      // 解析源节点
-      const fromNode = parseNodeDefinition(fromPart.trim())
-      const fromId = fromNode ? fromNode.id : fromPart.trim()
-      upsertNode(nodes, subgraphs, fromId, fromNode ? { ...fromNode } : { id: fromId, label: fromId }, currentSubgraph)
-
-      // 解析目标节点
-      const toNode = parseNodeDefinition(toPart.trim())
-      const toId = toNode ? toNode.id : toPart.trim()
-      upsertNode(nodes, subgraphs, toId, toNode ? { ...toNode } : { id: toId, label: toId }, currentSubgraph)
-
-      const edgeStyle = classifyEdgeStyle(arrow)
-      const arrowType = classifyArrowType(arrow)
-      edges.push({
-        id: `${fromId}-${toId}-${edges.length}`,
-        source: fromId,
-        target: toId,
-        style: edgeStyle,
-        arrowType,
-      })
-      continue
+    // 边：支持链式，支持带/不带标签，如 A -->|x| B --> C -->|y| D
+    {
+      const ARROW_RE = /<?-+\.+-+>?|-?\.+->|<?-+>|<?>?=+>?|<?>?-+-<?|=+=|~+|-+x|-+o/
+      const ARROW_SRC = ARROW_RE.source
+      // token = 箭头（可选跟 |label|）
+      const tokenRe = new RegExp(`((?:${ARROW_SRC})(?:\\s*\\|[^|]+\\|)?)`, 'g')
+      const parts = line.split(tokenRe).map(s => s.trim()).filter(s => s)
+      if (parts.length >= 3 && parts.length % 2 === 1) {
+        const arrowTokenRe = new RegExp(`^(?:${ARROW_SRC})(?:\\s*\\|[^|]+\\|)?$`)
+        const isEdgeLine = parts.every((p, i) => i % 2 === 0 ? true : arrowTokenRe.test(p))
+        if (isEdgeLine) {
+          const ids: string[] = []
+          for (let i = 0; i < parts.length; i += 2) {
+            const nd = parseNodeDefinition(parts[i])
+            const nid = nd ? nd.id : parts[i]
+            upsertNode(nodes, subgraphs, nid, nd ?? { id: nid, label: nid }, currentSubgraph)
+            ids.push(nid)
+          }
+          for (let i = 0; i < ids.length - 1; i++) {
+            const token = parts[i * 2 + 1]
+            const labelMatch = token.match(/\|([^|]+)\|\s*$/)
+            const arrow = token.replace(/\s*\|[^|]+\|\s*$/, '').trim()
+            edges.push({ id: `${ids[i]}-${ids[i+1]}-${edges.length}`, source: ids[i], target: ids[i+1], label: labelMatch?.[1].trim(), style: classifyEdgeStyle(arrow), arrowType: classifyArrowType(arrow) })
+          }
+          continue
+        }
+      }
     }
 
     // 单独的节点定义

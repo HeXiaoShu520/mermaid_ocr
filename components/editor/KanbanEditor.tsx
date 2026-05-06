@@ -95,7 +95,7 @@ export function KanbanEditor({ data, onUpdate }: KanbanEditorProps) {
 
   // ─── Item actions ───
   const addItem = useCallback((colId: string) => {
-    const newItem: KanbanItem = { id: `item-${++_itemCounter}`, label: '新任务' }
+    const newItem: KanbanItem = { id: `item-${Date.now()}`, label: '新任务' }
     handleUpdate({ columns: data.columns.map(c => c.id === colId ? { ...c, items: [...c.items, newItem] } : c) })
     setSelectedItemId(newItem.id)
   }, [data, handleUpdate])
@@ -290,7 +290,7 @@ export function KanbanEditor({ data, onUpdate }: KanbanEditorProps) {
                             {item.metadata.priority}
                           </span>
                         )}
-                        {item.metadata.assigned && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600">@{item.metadata.assigned}</span>}
+                        {item.metadata.assignee && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600">@{item.metadata.assignee}</span>}
                         {item.metadata.ticket && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-600">{item.metadata.ticket}</span>}
                       </div>
                     )}

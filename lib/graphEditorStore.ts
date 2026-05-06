@@ -104,6 +104,7 @@ interface GraphEditorState {
   setPendingAddShape: (shape: string | null) => void
 
   moveSubgraph: (subgraphId: string, dx: number, dy: number) => void
+  removeSubgraph: (subgraphId: string) => void
   updateNodeSubgraph: (nodeId: string, subgraphId: string | undefined) => void
   resizeSubgraph: (subgraphId: string, patch: { x?: number; y?: number; width?: number; height?: number }) => void
 
@@ -319,11 +320,17 @@ export const useGraphEditorStore = create<GraphEditorState>((set, get) => ({
   setCurveStyle: (curveStyle) => set({ curveStyle }),
   setPendingAddShape: (shape) => set({ pendingAddShape: shape }),
 
+  removeSubgraph: (subgraphId) => {
+    const { nodes, subgraphs } = get()
+    set({
+      subgraphs: subgraphs.filter(sg => sg.id !== subgraphId),
+      nodes: nodes.map(n => n.subgraph === subgraphId ? { ...n, subgraph: undefined } : n),
+    })
+  },
+
   updateNodeSubgraph: (nodeId, subgraphId) => {
     const { nodes, subgraphs } = get()
     const node = nodes.find(n => n.id === nodeId)
-    if (!node) return
-
     // 更新节点的 subgraph 字段
     const updatedNodes = nodes.map(n =>
       n.id === nodeId ? { ...n, subgraph: subgraphId } : n

@@ -113,11 +113,11 @@ export function parseKanbanDiagram(code: string): KanbanData {
       // [label]
       const bracket = mainPart.match(/^\[([^\]]+)\]$/)
       if (bracket) {
-        itemId = `item-${++_kanbanItemCounter}`
+        itemId = `item-${Date.now()}-${Math.random().toString(36).slice(2,6)}`
         itemLabel = bracket[1]
       } else {
         // 纯文本
-        itemId = `item-${++_kanbanItemCounter}`
+        itemId = `item-${Date.now()}-${Math.random().toString(36).slice(2,6)}`
         itemLabel = mainPart
       }
     }
@@ -157,9 +157,10 @@ export function serializeKanbanDiagram(data: KanbanData): string {
 
       if (item.metadata && Object.keys(item.metadata).length > 0) {
         const pairs = Object.entries(item.metadata)
+          .filter(([, v]) => v !== '')
           .map(([k, v]) => `${k}: '${v}'`)
           .join(', ')
-        line += `@{ ${pairs} }`
+        if (pairs) line += `@{ ${pairs} }`
       }
 
       lines.push(line)

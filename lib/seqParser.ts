@@ -136,12 +136,26 @@ export function parseSeqCode(code: string): SeqParseResult {
       const type = actMatch[1].toLowerCase() as 'activate' | 'deactivate'
       const participantId = actMatch[2]
       ensure(participantId)
-      activations.push({
-        id: `act-${activations.length}`,
-        participantId,
-        order: msgOrder - 0.5,
-        type,
-      })
+      const lastMsgId = messages.length > 0 ? messages[messages.length - 1].id : null
+      if (type === 'activate') {
+        // 记录未关闭的激活，等待 deactivate 配对
+        ;(activations as any).__pending = (activations as any).__pending || []
+        ;(activations as any).__pending.push({ participantId, startMsgId: lastMsgId })
+      } else {
+        const pending: { participantId: string; startMsgId: string | null }[] = (activations as any).__pending || []
+        const idx = pending.findLastIndex((p: any) => p.participantId === participantId)
+        if (idx >= 0) {
+          const p = pending.splice(idx, 1)[0]
+          if (p.startMsgId && lastMsgId) {
+            activations.push({
+              id: `act-${activations.length}`,
+              participantId,
+              startMsgId: p.startMsgId,
+              endMsgId: lastMsgId,
+            })
+          }
+        }
+      }
       continue
     }
 
@@ -263,10 +277,18 @@ export function serializeSeqCode(
   }
 
   for (const a of activations) {
+    const startMsg = sortedM.find(m => m.id === a.startMsgId)
+    const endMsg = sortedM.find(m => m.id === a.endMsgId)
+    if (!startMsg || !endMsg) continue
     items.push({
-      order: a.order,
-      priority: a.type === 'activate' ? 0.3 : 0.7,
-      text: `    ${a.type} ${a.participantId}`,
+      order: startMsg.order + 0.5,
+      priority: 0.3,
+      text: `    activate ${a.participantId}`,
+    })
+    items.push({
+      order: endMsg.order + 0.5,
+      priority: 0.7,
+      text: `    deactivate ${a.participantId}`,
     })
   }
 

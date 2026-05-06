@@ -71,6 +71,7 @@ export default function SvgCanvas({ code, onCodeChange }: SvgCanvasProps) {
           theme: theme as any,
           flowchart: { curve: curveStyle },
           ...(look !== 'classic' ? { look } as any : {}),
+          sequence: look === 'handDrawn' ? { theme: 'hand' } as any : {},
         } as any)
 
         const id = `svg-canvas-${Date.now()}`

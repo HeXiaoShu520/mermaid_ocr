@@ -346,6 +346,7 @@ export default function SequenceCanvas() {
               lifelineHeight={lifelineH}
               viewScale={viewTransform.scale}
               activations={activations}
+              messages={messages}
             />
           ))}
 

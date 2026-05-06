@@ -10,7 +10,7 @@ interface SubgraphProps {
 }
 
 export default function Subgraph({ subgraph, nodes, viewTransform }: SubgraphProps) {
-  const { selectedSubgraphId, selectSubgraph, moveSubgraph, setContextMenu, resizeSubgraph } = useGraphEditorStore()
+  const { selectedSubgraphId, selectSubgraph, moveSubgraph, setContextMenu, resizeSubgraph, updateNodeSubgraph } = useGraphEditorStore()
 
   const isSelected = selectedSubgraphId === subgraph.id
   const [isDragging, setIsDragging] = useState(false)
@@ -67,7 +67,18 @@ export default function Subgraph({ subgraph, nodes, viewTransform }: SubgraphPro
     setIsDragging(false)
     setIsResizing(false)
     setResizeDir(null)
-  }, [])
+    // 重新计算哪些节点属于此子图（以节点中心点判断）
+    const sg = subgraph
+    if (sg.x === undefined || sg.y === undefined || sg.width === undefined || sg.height === undefined) return
+    for (const node of nodes) {
+      const cx = node.x + node.width / 2
+      const cy = node.y + node.height / 2
+      const inside = cx >= sg.x && cx <= sg.x + sg.width && cy >= sg.y && cy <= sg.y + sg.height
+      const currentlyInside = node.subgraph === sg.id
+      if (inside && !currentlyInside) updateNodeSubgraph(node.id, sg.id)
+      else if (!inside && currentlyInside) updateNodeSubgraph(node.id, undefined)
+    }
+  }, [subgraph, nodes, updateNodeSubgraph])
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault()

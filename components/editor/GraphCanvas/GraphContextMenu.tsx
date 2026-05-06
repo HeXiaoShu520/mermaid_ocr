@@ -5,7 +5,7 @@ import { useGraphEditorStore } from '@/lib/graphEditorStore'
 import { useAiStore } from '@/lib/aiStore'
 
 export default function GraphContextMenu() {
-  const { contextMenu, setContextMenu, removeNode, removeEdge, nodes, subgraphs } = useGraphEditorStore()
+  const { contextMenu, setContextMenu, removeNode, removeEdge, nodes, subgraphs, removeSubgraph } = useGraphEditorStore()
   const { addContextNode, setIsOpen, insertTextToInput } = useAiStore()
 
   useEffect(() => {
@@ -32,6 +32,8 @@ export default function GraphContextMenu() {
       removeNode(contextMenu.nodeId)
     } else if (contextMenu.edgeId) {
       removeEdge(contextMenu.edgeId)
+    } else if (contextMenu.subgraphId) {
+      removeSubgraph(contextMenu.subgraphId)
     }
     setContextMenu(null)
   }

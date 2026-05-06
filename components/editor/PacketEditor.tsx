@@ -28,6 +28,7 @@ interface PacketEditorProps {
 export function PacketEditor({ data, onUpdate }: PacketEditorProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; insertAt: number } | null>(null)
   const { selectedId, setSelectedId, resizeMode } = usePacketEditorStore()
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 })
   const [isPanning, setIsPanning] = useState(false)
@@ -167,6 +168,7 @@ export function PacketEditor({ data, onUpdate }: PacketEditorProps) {
           }
         }
       }
+      dragRef.current.fields = newFields
       handleUpdate({ ...data, fields: newFields })
     }
 
@@ -214,9 +216,32 @@ export function PacketEditor({ data, onUpdate }: PacketEditorProps) {
       segments.push({ field, colStart: Math.max(field.startBit - rowStart, 0), colEnd: Math.min(field.endBit - rowStart, bitsPerRow - 1), colorIdx: fi % FIELD_COLORS.length })
     })
 
+    // 计算空隙区域
+    const gaps: { colStart: number; colEnd: number }[] = []
+    const covered = new Set(segments.flatMap(s => Array.from({ length: s.colEnd - s.colStart + 1 }, (_, i) => s.colStart + i)))
+    let gapStart: number | null = null
+    for (let i = 0; i <= bitsPerRow; i++) {
+      if (!covered.has(i) && i < bitsPerRow) {
+        if (gapStart === null) gapStart = i
+      } else {
+        if (gapStart !== null) { gaps.push({ colStart: gapStart, colEnd: i - 1 }); gapStart = null }
+      }
+    }
+
     return (
       <div key={rowIdx} style={{ marginBottom: ROW_GAP }}>
         <div className="relative" style={{ height: ROW_HEIGHT, border: '1px solid #e5e7eb', borderRadius: 4 }}>
+          {/* 空隙右键区域 */}
+          {gaps.map(gap => (
+            <div key={`gap-${gap.colStart}`}
+              className="absolute top-0 bottom-0"
+              style={{ left: gap.colStart * BIT_WIDTH, width: (gap.colEnd - gap.colStart + 1) * BIT_WIDTH, cursor: 'context-menu' }}
+              onContextMenu={e => {
+                e.preventDefault(); e.stopPropagation()
+                setContextMenu({ x: e.clientX, y: e.clientY, insertAt: rowStart + gap.colStart })
+              }}
+            />
+          ))}
           {segments.map(({ field, colStart, colEnd, colorIdx }) => {
             const color = FIELD_COLORS[colorIdx]
             const isSelected = selectedId === field.id
@@ -289,7 +314,26 @@ export function PacketEditor({ data, onUpdate }: PacketEditorProps) {
   }
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full" onClick={() => setContextMenu(null)}>
+      {/* 右键菜单 */}
+      {contextMenu && (
+        <div className="fixed z-50 bg-white border border-gray-200 rounded shadow-lg py-1 text-xs"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={e => e.stopPropagation()}>
+          <button className="w-full text-left px-3 py-1.5 hover:bg-gray-100"
+            onClick={() => {
+              const insertAt = contextMenu.insertAt
+              // 找到空隙的结束位置
+              const occupied = new Set(data.fields.flatMap(f => Array.from({ length: f.endBit - f.startBit + 1 }, (_, i) => f.startBit + i)))
+              let end = insertAt
+              while (!occupied.has(end + 1) && end + 1 < insertAt + 8) end++
+              handleUpdate({ ...data, fields: [...data.fields, { id: `field-${Date.now()}`, startBit: insertAt, endBit: end, label: '新字段' }].sort((a, b) => a.startBit - b.startBit) })
+              setContextMenu(null)
+            }}>
+            在此插入字段
+          </button>
+        </div>
+      )}
       {/* 画布区 */}
       <div
         ref={containerRef}

@@ -134,9 +134,7 @@ export function serializeToMermaid(
 
   // 输出非子图节点
   noSubgraphNodes.forEach(node => {
-    if (node.label !== node.id || node.shape) {
-      lines.push(`  ${serializeNodeShape(node)}`)
-    }
+    lines.push(`  ${serializeNodeShape(node)}`)
   })
 
   // 输出子图（带标签）

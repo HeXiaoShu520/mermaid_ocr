@@ -45,8 +45,8 @@ export interface SeqFragment {
 export interface SeqActivation {
   id: string
   participantId: string
-  order: number   // 浮点数，插在消息之间（如 1.5 表示在 order=1 的消息之后）
-  type: 'activate' | 'deactivate'
+  startMsgId: string  // 起点消息 id
+  endMsgId: string    // 终点消息 id
 }
 
 export interface SeqConnectionState {
@@ -88,6 +88,11 @@ interface SeqEditorState {
 
   // 待添加元素
   pendingAddType: 'participant' | 'actor' | SeqFragment['type'] | null
+  pendingConnect: boolean
+  // 激活条选择模式：{ startMsgId? }
+  pendingActivation: { startMsgId?: string; participantId?: string } | null
+  setPendingActivation: (v: SeqEditorState['pendingActivation']) => void
+  setPendingConnect: (v: boolean) => void
 
   // ─── Actions ───
 
@@ -164,6 +169,8 @@ export const useSeqEditorStore = create<SeqEditorState>((set, get) => ({
   contextMenu: null,
   showGrid: false,
   pendingAddType: null,
+  pendingConnect: false,
+  pendingActivation: null,
 
   // ─── Participant Actions ───
   addParticipant: (p) => set({ participants: [...get().participants, p] }),
@@ -229,7 +236,7 @@ export const useSeqEditorStore = create<SeqEditorState>((set, get) => ({
   },
 
   removeMessage: (id) => {
-    const { messages } = get()
+    const { messages, activations } = get()
     const msg = messages.find(m => m.id === id)
     if (!msg) return
     const removedOrder = msg.order
@@ -237,6 +244,7 @@ export const useSeqEditorStore = create<SeqEditorState>((set, get) => ({
       messages: messages
         .filter(m => m.id !== id)
         .map(m => m.order > removedOrder ? { ...m, order: m.order - 1 } : m),
+      activations: activations.filter(a => a.startMsgId !== id && a.endMsgId !== id),
       selectedMessageId: null,
     })
   },
@@ -377,6 +385,8 @@ export const useSeqEditorStore = create<SeqEditorState>((set, get) => ({
   setEditingMessage: (id) => set({ editingMessageId: id }),
   setContextMenu: (menu) => set({ contextMenu: menu }),
   setPendingAddType: (type) => set({ pendingAddType: type }),
+  setPendingActivation: (v) => set({ pendingActivation: v }),
+  setPendingConnect: (v) => set({ pendingConnect: v }),
 
   // ─── Init ───
   initSeqGraph: (participants, messages, fragments = [], activations = []) => {
