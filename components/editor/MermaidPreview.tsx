@@ -183,8 +183,6 @@ export default function MermaidPreview({ code, widthPx }: MermaidPreviewProps) {
 
     try {
       const cloned = svgEl.cloneNode(true) as SVGSVGElement
-      // 移除外部引用，内联所有样式
-      cloned.querySelectorAll('foreignObject').forEach(el => el.remove())
       cloned.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
 
       const bbox = svgEl.getBBox()
